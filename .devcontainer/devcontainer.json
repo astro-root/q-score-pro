@@ -1,0 +1,24 @@
+{
+  "name": "Q-Score Pro",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [3000, 54321, 54322, 54323],
+  "portsAttributes": {
+    "3000": { "label": "Next.js dev server", "onAutoForward": "openPreview" },
+    "54321": { "label": "Supabase API" },
+    "54322": { "label": "Supabase Postgres" },
+    "54323": { "label": "Supabase Studio", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "bash setup.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
+}
