@@ -90,17 +90,21 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  const { data, error } = await supabase
-    .from("entries")
-    .insert({
-      tournament_id: tournamentId,
-      display_name: parsed.data.displayName,
-      email: parsed.data.email,
-      affiliation: parsed.data.affiliation ?? null,
-      answers,
-    })
-    .select()
-    .single();
+  // NOTE: intentionally no .select() here. Public/anonymous entrants have
+  // no SELECT permission on `entries` (staff-only, see
+  // entries_select_admin policy) - chaining .select() would make
+  // PostgREST attempt to RETURNING the inserted row, which RLS then
+  // blocks, turning a successful insert into a reported failure. Without
+  // .select(), the client sends `Prefer: return=minimal` and RLS's
+  // INSERT/WITH CHECK policy (entries_insert_public_when_open) is the
+  // only check that applies.
+  const { error } = await supabase.from("entries").insert({
+    tournament_id: tournamentId,
+    display_name: parsed.data.displayName,
+    email: parsed.data.email,
+    affiliation: parsed.data.affiliation ?? null,
+    answers,
+  });
 
   if (error) {
     // RLS violation surfaces as a generic permissions error - translate it
@@ -115,5 +119,5 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  return NextResponse.json({ entry: data }, { status: 201 });
+  return NextResponse.json({ ok: true }, { status: 201 });
 }
