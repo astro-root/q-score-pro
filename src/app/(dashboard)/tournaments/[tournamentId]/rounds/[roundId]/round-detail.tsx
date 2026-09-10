@@ -152,20 +152,20 @@ export function RoundDetail({
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-5">
+      <section className="flex items-center justify-between rounded-lg border border-border bg-surface p-5">
         <div>
-          <p className="text-sm text-slate-500">ステータス</p>
-          <p className="font-medium text-slate-900">{STATUS_LABEL[round.status]}</p>
+          <p className="text-sm text-muted">ステータス</p>
+          <p className="font-medium text-ink">{STATUS_LABEL[round.status]}</p>
         </div>
         <div className="flex gap-2">
           {canOperateScore && round.round_type === "BUZZER" && (
             <Link
               href={`/tournaments/${tournamentId}/rounds/${round.id}/operate`}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover"
             >
               得点操作画面を開く
             </Link>
@@ -174,7 +174,7 @@ export function RoundDetail({
             <button
               onClick={advanceStatus}
               disabled={pending === "status"}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
               {STATUS_LABEL[NEXT_STATUS[round.status]!]} にする
             </button>
@@ -183,31 +183,31 @@ export function RoundDetail({
       </section>
 
       {canManageRounds && (
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">得点ルール</h2>
+        <section className="rounded-lg border border-border bg-surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-body">得点ルール</h2>
           <RuleConfigEditor value={ruleConfig} onChange={setRuleConfig} />
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={saveRuleConfig}
               disabled={pending === "rules"}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
               {pending === "rules" ? "保存中..." : "ルールを保存"}
             </button>
-            {ruleMessage && <p className="text-sm text-emerald-600">{ruleMessage}</p>}
+            {ruleMessage && <p className="text-sm text-success">{ruleMessage}</p>}
           </div>
         </section>
       )}
 
       {canManageRounds && unattached.length > 0 && (
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">
+        <section className="rounded-lg border border-border bg-surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-body">
             このラウンドに参加者を追加 ({unattached.length}名未追加)
           </h2>
           <button
             onClick={() => addParticipants(unattached.map((p) => p.id))}
             disabled={pending === "add"}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-body hover:bg-canvas disabled:opacity-60"
           >
             {pending === "add" ? "追加中..." : "全員をこのラウンドに追加"}
           </button>
@@ -215,11 +215,11 @@ export function RoundDetail({
       )}
 
       {canManageRounds && round.round_type === "PAPER" && sorted.length > 0 && (
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">自動組分け</h2>
+        <section className="rounded-lg border border-border bg-surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-body">自動組分け</h2>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-600">組数</label>
+              <label className="text-xs text-body">組数</label>
               <input
                 type="number"
                 min={1}
@@ -230,7 +230,7 @@ export function RoundDetail({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-600">方式</label>
+              <label className="text-xs text-body">方式</label>
               <select
                 value={groupMethod}
                 onChange={(e) => setGroupMethod(e.target.value as typeof groupMethod)}
@@ -244,7 +244,7 @@ export function RoundDetail({
             <button
               onClick={runAutoGrouping}
               disabled={pending === "groups"}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
               {pending === "groups" ? "実行中..." : "自動組分けを実行"}
             </button>
@@ -252,9 +252,9 @@ export function RoundDetail({
         </section>
       )}
 
-      <section className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <section className="overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b border-border bg-canvas text-xs uppercase text-muted">
             <tr>
               <th className="px-4 py-3">順位</th>
               <th className="px-4 py-3">氏名</th>
@@ -263,21 +263,21 @@ export function RoundDetail({
               <th className="px-4 py-3">通過</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted">
                   まだ参加者がいません
                 </td>
               </tr>
             )}
             {sorted.map((rp) => (
               <tr key={rp.id}>
-                <td className="px-4 py-3 text-slate-600">{rp.rank ?? "-"}</td>
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="px-4 py-3 text-body">{rp.rank ?? "-"}</td>
+                <td className="px-4 py-3 font-medium text-ink">
                   {rp.participants?.display_name ?? "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{rp.group_label ?? "-"}</td>
+                <td className="px-4 py-3 text-body">{rp.group_label ?? "-"}</td>
                 <td className="px-4 py-3">
                   {canGradePaperQuiz ? (
                     <input
@@ -286,7 +286,7 @@ export function RoundDetail({
                       onChange={(e) =>
                         setScoreDrafts((prev) => ({ ...prev, [rp.participant_id]: e.target.value }))
                       }
-                      className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="w-24 rounded-md border border-border-strong px-2 py-1 text-sm"
                     />
                   ) : (
                     (rp.score ?? "-")
@@ -294,12 +294,12 @@ export function RoundDetail({
                 </td>
                 <td className="px-4 py-3">
                   {rp.passed === true && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs text-success">
                       通過
                     </span>
                   )}
                   {rp.passed === false && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-muted">
                       非通過
                     </span>
                   )}
@@ -315,11 +315,11 @@ export function RoundDetail({
           <button
             onClick={saveScores}
             disabled={pending === "scores"}
-            className="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
           >
             {pending === "scores" ? "保存中..." : "得点を保存して順位を再計算"}
           </button>
-          {message && <p className="text-sm text-emerald-600">{message}</p>}
+          {message && <p className="text-sm text-success">{message}</p>}
         </div>
       )}
     </div>

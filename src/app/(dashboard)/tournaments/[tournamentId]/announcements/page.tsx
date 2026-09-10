@@ -26,7 +26,7 @@ export default async function AnnouncementsPage({
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">お知らせ管理</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">お知らせ管理</h1>
       <AnnouncementsManager tournamentId={tournamentId} initialAnnouncements={announcements ?? []} />
     </div>
   );

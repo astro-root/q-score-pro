@@ -51,15 +51,15 @@ export default async function EntriesPage({
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">エントリー一覧</h1>
-        <span className="text-sm text-slate-500">{entries?.length ?? 0} 件</span>
+        <h1 className="text-2xl font-bold text-ink">エントリー一覧</h1>
+        <span className="text-sm text-muted">{entries?.length ?? 0} 件</span>
       </div>
 
       <EntrySearchBar tournamentId={tournamentId} />
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b border-border bg-canvas text-xs uppercase text-muted">
             <tr>
               <th className="px-4 py-3">表示名</th>
               <th className="px-4 py-3">メールアドレス</th>
@@ -73,10 +73,10 @@ export default async function EntriesPage({
               <th className="px-4 py-3">エントリー日時</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {(entries ?? []).length === 0 && (
               <tr>
-                <td colSpan={5 + (fields?.length ?? 0)} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5 + (fields?.length ?? 0)} className="px-4 py-8 text-center text-muted">
                   該当するエントリーがありません
                 </td>
               </tr>
@@ -85,20 +85,20 @@ export default async function EntriesPage({
               const answers = e.answers as Record<string, unknown>;
               return (
                 <tr key={e.id}>
-                  <td className="px-4 py-3 font-medium text-slate-900">{e.display_name}</td>
-                  <td className="px-4 py-3 text-slate-600">{e.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{e.affiliation ?? "-"}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{e.display_name}</td>
+                  <td className="px-4 py-3 text-body">{e.email}</td>
+                  <td className="px-4 py-3 text-body">{e.affiliation ?? "-"}</td>
                   {(fields ?? []).map((f) => (
-                    <td key={f.field_key} className="px-4 py-3 text-slate-600">
+                    <td key={f.field_key} className="px-4 py-3 text-body">
                       {String(answers?.[f.field_key] ?? "-")}
                     </td>
                   ))}
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-body">
                       {STATUS_LABEL[e.status] ?? e.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-4 py-3 text-muted">
                     {new Date(e.submitted_at).toLocaleString("ja-JP")}
                   </td>
                 </tr>

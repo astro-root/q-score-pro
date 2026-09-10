@@ -3,7 +3,7 @@
 import type { RuleConfig, WinCondition } from "@/lib/rules/types";
 
 const inputClass =
-  "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+  "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
 const WIN_CONDITION_LABEL: Record<WinCondition["type"], string> = {
   OPEN: "制限なし(スタッフが手動でラウンドを終了)",
@@ -36,7 +36,7 @@ export function RuleConfigEditor({
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">正解時の得点</label>
+          <label className="text-xs font-medium text-body">正解時の得点</label>
           <input
             type="number"
             value={value.correctPoints}
@@ -45,7 +45,7 @@ export function RuleConfigEditor({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">誤答時の減点</label>
+          <label className="text-xs font-medium text-body">誤答時の減点</label>
           <input
             type="number"
             value={value.wrongPenalty}
@@ -54,7 +54,7 @@ export function RuleConfigEditor({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">スルー時の得点変動</label>
+          <label className="text-xs font-medium text-body">スルー時の得点変動</label>
           <input
             type="number"
             value={value.throughPenalty}
@@ -66,7 +66,7 @@ export function RuleConfigEditor({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">誤答回数の上限(空欄=無制限)</label>
+          <label className="text-xs font-medium text-body">誤答回数の上限(空欄=無制限)</label>
           <input
             type="number"
             min={1}
@@ -80,7 +80,7 @@ export function RuleConfigEditor({
             className={inputClass}
           />
         </div>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 self-end pb-2 text-sm text-body">
           <input
             type="checkbox"
             checked={value.disqualifyOnMaxWrong}
@@ -91,7 +91,7 @@ export function RuleConfigEditor({
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-medium text-slate-600">勝利・終了条件</label>
+        <label className="text-xs font-medium text-body">勝利・終了条件</label>
         <select
           value={value.winCondition.type}
           onChange={(e) => onChange({ ...value, winCondition: defaultWinCondition(e.target.value as WinCondition["type"]) })}

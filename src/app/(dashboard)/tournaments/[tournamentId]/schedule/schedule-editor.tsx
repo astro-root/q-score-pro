@@ -79,13 +79,13 @@ export function ScheduleEditor({
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
         {items.length === 0 && (
-          <p className="text-sm text-slate-400">まだスケジュール項目がありません</p>
+          <p className="text-sm text-muted">まだスケジュール項目がありません</p>
         )}
         {items.map((item, index) => (
           <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -105,21 +105,21 @@ export function ScheduleEditor({
               <button
                 type="button"
                 onClick={() => move(index, -1)}
-                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-border-strong px-2 py-1.5 text-xs text-body hover:bg-canvas"
               >
                 ↑
               </button>
               <button
                 type="button"
                 onClick={() => move(index, 1)}
-                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-border-strong px-2 py-1.5 text-xs text-body hover:bg-canvas"
               >
                 ↓
               </button>
               <button
                 type="button"
                 onClick={() => remove(index)}
-                className="rounded-md border border-red-200 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                className="rounded-md border border-danger/30 px-2 py-1.5 text-xs text-danger hover:bg-danger-soft"
               >
                 削除
               </button>
@@ -129,18 +129,18 @@ export function ScheduleEditor({
         <button
           type="button"
           onClick={add}
-          className="self-start rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          className="self-start rounded-md border border-dashed border-border-strong px-4 py-2 text-sm text-body hover:bg-canvas"
         >
           + 項目を追加
         </button>
       </div>
 
-      {message && <p className="text-sm text-emerald-600">{message}</p>}
+      {message && <p className="text-sm text-success">{message}</p>}
 
       <button
         onClick={save}
         disabled={pending}
-        className="self-start rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="self-start rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "保存中..." : "保存"}
       </button>

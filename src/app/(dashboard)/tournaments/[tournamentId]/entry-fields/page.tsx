@@ -26,7 +26,7 @@ export default async function EntryFieldsPage({
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">エントリーフォーム項目設定</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">エントリーフォーム項目設定</h1>
       <EntryFieldsEditor tournamentId={tournamentId} initialFields={fields ?? []} />
     </div>
   );

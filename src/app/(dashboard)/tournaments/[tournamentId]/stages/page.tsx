@@ -33,7 +33,7 @@ export default async function StagesPage({
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">ステージ管理</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">ステージ管理</h1>
       <StagesManager tournamentId={tournamentId} initialStages={stages ?? []} rounds={rounds ?? []} />
     </div>
   );

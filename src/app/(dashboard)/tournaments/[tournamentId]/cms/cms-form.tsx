@@ -86,25 +86,25 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1 sm:col-span-2">
-          <label className="text-sm font-medium text-slate-700">大会名</label>
+          <label className="text-sm font-medium text-body">大会名</label>
           <input {...field("name")} required className={inputClass} />
         </div>
         <div className="flex flex-col gap-1 sm:col-span-2">
-          <label className="text-sm font-medium text-slate-700">大会概要</label>
+          <label className="text-sm font-medium text-body">大会概要</label>
           <textarea {...field("summary")} rows={3} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">ロゴ画像URL</label>
+          <label className="text-sm font-medium text-body">ロゴ画像URL</label>
           <input {...field("logoUrl")} type="url" placeholder="https://..." className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">メインビジュアルURL</label>
+          <label className="text-sm font-medium text-body">メインビジュアルURL</label>
           <input
             {...field("mainVisualUrl")}
             type="url"
@@ -116,52 +116,52 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">開催場所</label>
+          <label className="text-sm font-medium text-body">開催場所</label>
           <input {...field("venue")} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">主催者</label>
+          <label className="text-sm font-medium text-body">主催者</label>
           <input {...field("organizerName")} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1 sm:col-span-2">
-          <label className="text-sm font-medium text-slate-700">問い合わせ先</label>
+          <label className="text-sm font-medium text-body">問い合わせ先</label>
           <input {...field("contactInfo")} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">開催日時(開始)</label>
+          <label className="text-sm font-medium text-body">開催日時(開始)</label>
           <input {...field("eventStartsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">開催日時(終了)</label>
+          <label className="text-sm font-medium text-body">開催日時(終了)</label>
           <input {...field("eventEndsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">エントリー期間(開始)</label>
+          <label className="text-sm font-medium text-body">エントリー期間(開始)</label>
           <input {...field("entryStartsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">エントリー期間(終了)</label>
+          <label className="text-sm font-medium text-body">エントリー期間(終了)</label>
           <input {...field("entryEndsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">定員</label>
+          <label className="text-sm font-medium text-body">定員</label>
           <input {...field("capacity")} type="number" min={1} className={inputClass} />
         </div>
       </section>
 
       <section className="grid gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">ルール(Markdown可)</label>
+          <label className="text-sm font-medium text-body">ルール(Markdown可)</label>
           <textarea {...field("rulesContent")} rows={8} className={`${inputClass} font-mono`} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">注意事項</label>
+          <label className="text-sm font-medium text-body">注意事項</label>
           <textarea {...field("notes")} rows={4} className={inputClass} />
         </div>
       </section>
 
       {message && (
-        <p className={`text-sm ${message.type === "ok" ? "text-emerald-600" : "text-red-600"}`}>
+        <p className={`text-sm ${message.type === "ok" ? "text-success" : "text-danger"}`}>
           {message.text}
         </p>
       )}
@@ -169,7 +169,7 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="self-start rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "保存中..." : "保存"}
       </button>

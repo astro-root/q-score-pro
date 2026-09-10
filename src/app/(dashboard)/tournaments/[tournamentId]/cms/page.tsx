@@ -28,11 +28,11 @@ export default async function CmsPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">大会ページ編集</h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <h1 className="mb-1 text-2xl font-bold text-ink">大会ページ編集</h1>
+      <p className="mb-6 text-sm text-muted">
         ここで編集した内容が公開ページ (/t/{tournament.slug}) に反映されます。
       </p>
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <CmsForm tournament={tournament} />
       </div>
     </div>

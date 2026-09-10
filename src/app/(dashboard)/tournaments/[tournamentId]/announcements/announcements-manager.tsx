@@ -60,15 +60,15 @@ export function AnnouncementsManager({
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
   return (
     <div className="flex flex-col gap-6">
       <form
         onSubmit={handleCreate}
-        className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5"
+        className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5"
       >
-        <h2 className="text-sm font-semibold text-slate-700">お知らせを投稿</h2>
+        <h2 className="text-sm font-semibold text-body">お知らせを投稿</h2>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -84,43 +84,43 @@ export function AnnouncementsManager({
           placeholder="本文"
           className={inputClass}
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
           disabled={pending}
-          className="self-start rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+          className="self-start rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
         >
           {pending ? "投稿中..." : "投稿"}
         </button>
       </form>
 
-      <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {initialAnnouncements.length === 0 && (
-          <li className="p-6 text-center text-sm text-slate-400">まだお知らせはありません</li>
+          <li className="p-6 text-center text-sm text-muted">まだお知らせはありません</li>
         )}
         {initialAnnouncements.map((a) => (
           <li key={a.id} className="flex items-start justify-between gap-4 px-5 py-4">
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-medium text-slate-900">{a.title}</p>
+                <p className="font-medium text-ink">{a.title}</p>
                 {!a.is_published && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                  <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs text-muted">
                     非公開
                   </span>
                 )}
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{a.body}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-body">{a.body}</p>
             </div>
             <div className="flex shrink-0 gap-2">
               <button
                 onClick={() => togglePublish(a)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-border-strong px-3 py-1.5 text-xs font-medium text-body hover:bg-canvas"
               >
                 {a.is_published ? "非公開にする" : "公開する"}
               </button>
               <button
                 onClick={() => remove(a)}
-                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                className="rounded-md border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-soft"
               >
                 削除
               </button>

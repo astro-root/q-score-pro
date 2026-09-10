@@ -48,12 +48,12 @@ export function NewRoundForm({ tournamentId, stages }: { tournamentId: string; s
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">ラウンド名</label>
+        <label className="text-sm font-medium text-body">ラウンド名</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -65,7 +65,7 @@ export function NewRoundForm({ tournamentId, stages }: { tournamentId: string; s
 
       {stages.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">ステージ(任意)</label>
+          <label className="text-sm font-medium text-body">ステージ(任意)</label>
           <select value={stageId} onChange={(e) => setStageId(e.target.value)} className={inputClass}>
             <option value="">未設定</option>
             {stages.map((s) => (
@@ -78,7 +78,7 @@ export function NewRoundForm({ tournamentId, stages }: { tournamentId: string; s
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">形式</label>
+        <label className="text-sm font-medium text-body">形式</label>
         <select
           value={roundType}
           onChange={(e) => setRoundType(e.target.value as "PAPER" | "BUZZER")}
@@ -90,7 +90,7 @@ export function NewRoundForm({ tournamentId, stages }: { tournamentId: string; s
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">通過人数(任意)</label>
+        <label className="text-sm font-medium text-body">通過人数(任意)</label>
         <input
           type="number"
           min={1}
@@ -98,22 +98,22 @@ export function NewRoundForm({ tournamentId, stages }: { tournamentId: string; s
           onChange={(e) => setAdvanceCount(e.target.value)}
           className={inputClass}
         />
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted">
           同着の場合は境界順位の参加者を全員通過扱いにします(足切りの公平性を優先)。
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">得点ルール</h3>
+      <div className="rounded-lg border border-border bg-canvas p-4">
+        <h3 className="mb-3 text-sm font-semibold text-body">得点ルール</h3>
         <RuleConfigEditor value={ruleConfig} onChange={setRuleConfig} />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="self-start rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "作成中..." : "作成"}
       </button>

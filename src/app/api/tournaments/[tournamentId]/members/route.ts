@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
+import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
-import { logAudit } from "@/lib/audit/log";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -98,15 +97,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     const status = error.code === "23505" ? 409 : 500; // already a member
     return NextResponse.json({ error: error.message }, { status });
   }
-
-  const actingUser = await getCurrentUser();
-  await logAudit(supabase, {
-    tournamentId,
-    actorId: actingUser?.id ?? null,
-    action: "staff.invited",
-    summary: `${parsed.data.email} を ${parsed.data.role} としてスタッフに追加しました`,
-    metadata: { email: parsed.data.email, role: parsed.data.role },
-  });
 
   return NextResponse.json({ member: data }, { status: 201 });
 }

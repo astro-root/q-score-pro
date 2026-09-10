@@ -1,13 +1,76 @@
 @import "tailwindcss";
 
+/*
+ * Q-Score Pro design tokens.
+ *
+ * Direction: a dark broadcast control-room aesthetic (Linear / Vercel /
+ * Raycast register), not a generic light SaaS admin. Layered near-black
+ * surfaces create depth, a single violet accent carries interactive state,
+ * and amber is reserved exclusively for the scoreboard signature (live
+ * status, scores, ranks) - the one thing on screen that should feel like
+ * it's glowing off a stage display. A quiet grain overlay and glass cards
+ * keep flat dark fills from looking dead. Numbers that matter render with
+ * tabular figures via .font-score.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0b12;
+  --foreground: #f5f6fa;
+
+  /* depth ladder, darkest to lightest */
+  --color-panel: #000000;
+  --color-canvas: #0a0b12;
+  --color-surface: #14151f;
+  --color-surface-muted: #1b1d2a;
+  --color-border: #262838;
+  --color-border-strong: #383b52;
+
+  --color-ink: #f5f6fa;
+  --color-body: #b4b7c9;
+  --color-muted: #7b7f99;
+
+  --color-primary: #6957e0;
+  --color-primary-hover: #7c6ff0;
+  --color-primary-soft: #211c3d;
+
+  --color-accent: #ffc247;
+  --color-accent-soft: #362708;
+  --color-accent-ink: #ffd98a;
+
+  --color-success: #34d399;
+  --color-success-soft: #0f2e22;
+  --color-danger: #f87171;
+  --color-danger-soft: #341417;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #362708;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-panel: var(--color-panel);
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-ink: var(--color-ink);
+  --color-body: var(--color-body);
+  --color-muted: var(--color-muted);
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-accent-ink: var(--color-accent-ink);
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
     "Noto Sans JP", sans-serif;
@@ -15,7 +78,79 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-canvas);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+/* The scoreboard signature: tabular figures + tightened tracking so live
+   numbers (scores, ranks, question counters) read like an LED readout. */
+.font-score {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* Violet -> amber gradient text, reserved for the wordmark only. */
+.text-gradient-brand {
+  background: linear-gradient(90deg, #a89bff 0%, #ffc247 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-hover);
+  outline-offset: 2px;
+}
+
+/* Subtle grain overlay - fixed, full-viewport, applied once at the body
+   level so every page gets the same quiet texture instead of a flat,
+   dead-looking dark fill. Kept very low opacity; it should be felt, not seen. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Glass surface variant - translucent + blurred, for elevated hero cards
+   that should feel like they're floating above the glow rather than sitting
+   flat on it. */
+.glass {
+  background: color-mix(in srgb, var(--color-surface) 65%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in srgb, white 8%, transparent);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+  }
 }

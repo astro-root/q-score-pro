@@ -33,8 +33,8 @@ export default async function LayoutsPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">得点表示画面レイアウト</h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <h1 className="mb-1 text-2xl font-bold text-ink">得点表示画面レイアウト</h1>
+      <p className="mb-6 text-sm text-muted">
         大会ごとに複数のレイアウト(Main / Scoreboard / Final / OBS など)を作成・保存できます。
       </p>
       <LayoutsManager tournamentId={tournamentId} initialLayouts={layouts ?? []} rounds={rounds ?? []} />

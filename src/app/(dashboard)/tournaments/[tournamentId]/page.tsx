@@ -57,112 +57,6 @@ export default async function TournamentDashboardPage({
           <p className="text-sm text-slate-600">{role ?? "権限なし"}</p>
         </section>
 
-        {can(role, "tournament:manage_cms") && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">大会ページ・公開情報</h2>
-            <div className="flex flex-col gap-1 text-sm">
-              <Link href={`/tournaments/${tournament.id}/cms`} className="font-medium text-indigo-600 hover:underline">
-                大会ページ編集
-              </Link>
-              <Link
-                href={`/tournaments/${tournament.id}/announcements`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                お知らせ管理
-              </Link>
-              <Link
-                href={`/tournaments/${tournament.id}/schedule`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                スケジュール管理
-              </Link>
-              <Link
-                href={`/tournaments/${tournament.id}/entry-fields`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                エントリーフォーム項目設定
-              </Link>
-              <Link
-                href={`/tournaments/${tournament.id}/layouts`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                得点表示画面レイアウト編集
-              </Link>
-              <a
-                href={`/t/${tournament.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-slate-500 hover:underline"
-              >
-                公開ページを見る ↗
-              </a>
-            </div>
-          </section>
-        )}
-
-        {can(role, "tournament:manage_entries") && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">エントリー管理</h2>
-            <Link
-              href={`/tournaments/${tournament.id}/entries`}
-              className="text-sm font-medium text-indigo-600 hover:underline"
-            >
-              エントリー一覧・CSVエクスポート
-            </Link>
-          </section>
-        )}
-
-        {can(role, "tournament:manage_participants") && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">参加者管理</h2>
-            <Link
-              href={`/tournaments/${tournament.id}/participants`}
-              className="text-sm font-medium text-indigo-600 hover:underline"
-            >
-              参加者一覧・エントリーからの取り込み
-            </Link>
-          </section>
-        )}
-
-        {can(role, "tournament:view") && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">ラウンド・得点</h2>
-            <div className="flex flex-col gap-1 text-sm">
-              <Link href={`/tournaments/${tournament.id}/rounds`} className="font-medium text-indigo-600 hover:underline">
-                ラウンド管理・ペーパークイズ採点・組分け
-              </Link>
-              {can(role, "tournament:manage_rounds") && (
-                <Link
-                  href={`/tournaments/${tournament.id}/stages`}
-                  className="font-medium text-indigo-600 hover:underline"
-                >
-                  ステージ管理
-                </Link>
-              )}
-            </div>
-          </section>
-        )}
-
-        {can(role, "tournament:view_audit_log") && (
-          <section className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">監査ログ・バックアップ</h2>
-            <div className="flex flex-col gap-1 text-sm">
-              <Link
-                href={`/tournaments/${tournament.id}/audit-log`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                監査ログを確認
-              </Link>
-              <a
-                href={`/api/tournaments/${tournament.id}/export`}
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                大会データをエクスポート(JSON)
-              </a>
-            </div>
-          </section>
-        )}
-
         {can(role, "tournament:manage_staff") && (
           <section className="rounded-lg border border-slate-200 bg-white p-5">
             <h2 className="mb-2 text-sm font-semibold text-slate-700">スタッフ管理</h2>
@@ -184,7 +78,7 @@ export default async function TournamentDashboardPage({
       </div>
 
       <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-        自動テスト・負荷検証・UX改善などは Phase 9 で継続して取り組みます。
+        エントリー・参加者管理・ラウンド管理・得点操作などは Phase 2 以降で実装予定です。
       </div>
     </div>
   );

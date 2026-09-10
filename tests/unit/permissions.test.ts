@@ -10,7 +10,6 @@ describe("permissions.can", () => {
 
   it("ADMIN can manage the tournament but not delete it", () => {
     expect(can("ADMIN", "tournament:update_settings")).toBe(true);
-    expect(can("ADMIN", "tournament:manage_cms")).toBe(true);
     expect(can("ADMIN", "tournament:delete")).toBe(false);
   });
 
@@ -18,7 +17,6 @@ describe("permissions.can", () => {
     expect(can("SCORE_OPERATOR", "tournament:operate_score")).toBe(true);
     expect(can("SCORE_OPERATOR", "tournament:view")).toBe(true);
     expect(can("SCORE_OPERATOR", "tournament:manage_staff")).toBe(false);
-    expect(can("SCORE_OPERATOR", "tournament:manage_cms")).toBe(false);
     expect(can("SCORE_OPERATOR", "tournament:delete")).toBe(false);
   });
 

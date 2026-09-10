@@ -22,12 +22,12 @@ export function EntrySearchBar({ tournamentId }: { tournamentId: string }) {
         defaultValue={searchParams.get("q") ?? ""}
         onChange={(e) => updateParam("q", e.target.value)}
         placeholder="氏名・メール・所属で検索"
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-64 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className="rounded-md border border-border-strong px-3 py-2 text-sm sm:w-64 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover"
       />
       <select
         defaultValue={searchParams.get("status") ?? ""}
         onChange={(e) => updateParam("status", e.target.value)}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary-hover"
       >
         <option value="">すべてのステータス</option>
         <option value="SUBMITTED">エントリー済み</option>
@@ -35,7 +35,7 @@ export function EntrySearchBar({ tournamentId }: { tournamentId: string }) {
       </select>
       <a
         href={`/api/tournaments/${tournamentId}/entries/export`}
-        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-body hover:bg-canvas"
       >
         CSVエクスポート
       </a>

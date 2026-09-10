@@ -43,8 +43,8 @@ export default async function RoundDetailPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">{round.name}</h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <h1 className="mb-1 text-2xl font-bold text-ink">{round.name}</h1>
+      <p className="mb-6 text-sm text-muted">
         {round.round_type === "PAPER" ? "ペーパークイズ" : "早押しクイズ"}
         {round.advance_count ? ` ・ 通過人数 ${round.advance_count}名` : ""}
       </p>

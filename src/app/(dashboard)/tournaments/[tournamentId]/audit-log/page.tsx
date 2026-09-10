@@ -27,21 +27,21 @@ export default async function AuditLogPage({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">監査ログ</h1>
+        <h1 className="text-2xl font-bold text-ink">監査ログ</h1>
         <a
           href={`/api/tournaments/${tournamentId}/export`}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-body hover:bg-canvas"
         >
           大会データを全てエクスポート(JSON)
         </a>
       </div>
-      <p className="mb-6 text-sm text-slate-500">
+      <p className="mb-6 text-sm text-muted">
         誰が・いつ・何を変更したかの記録です(直近200件)。得点操作の詳細な履歴は各ラウンドの得点操作画面から確認できます。
       </p>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b border-border bg-canvas text-xs uppercase text-muted">
             <tr>
               <th className="px-4 py-3">日時</th>
               <th className="px-4 py-3">操作者</th>
@@ -50,10 +50,10 @@ export default async function AuditLogPage({
               <th className="px-4 py-3">内容</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {(!logs || logs.length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted">
                   まだ記録がありません
                 </td>
               </tr>
@@ -64,13 +64,13 @@ export default async function AuditLogPage({
               const participant = log.participants as unknown as { display_name: string } | null;
               return (
                 <tr key={log.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-slate-500">
+                  <td className="whitespace-nowrap px-4 py-3 text-muted">
                     {new Date(log.created_at).toLocaleString("ja-JP")}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{actor?.display_name ?? "システム"}</td>
-                  <td className="px-4 py-3 text-slate-500">{round?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-500">{participant?.display_name ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-900">{log.summary}</td>
+                  <td className="px-4 py-3 text-body">{actor?.display_name ?? "システム"}</td>
+                  <td className="px-4 py-3 text-muted">{round?.name ?? "-"}</td>
+                  <td className="px-4 py-3 text-muted">{participant?.display_name ?? "-"}</td>
+                  <td className="px-4 py-3 text-ink">{log.summary}</td>
                 </tr>
               );
             })}
