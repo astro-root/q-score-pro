@@ -1,0 +1,1166 @@
+diff --git a/README.md b/README.md
+index 0932948..efa4900 100644
+--- a/README.md
++++ b/README.md
+@@ -179,13 +179,26 @@ JSON/CSV でエクスポートするアプリ内機能は、マスタープロ
+ - **score_events の追記専用化**: 変更できるのは Undo (`voided_at`) のみ。DELETE 不可。
+ - CSV数式インジェクション対策、エントリー検索の特殊文字対応、セキュリティヘッダー追加。
+ 
++### 直近の変更 (マイグレーション 0011)
++
++- **エントリーの重複防止 (R-05)**: 同じ大会に同じメールアドレス(大文字小文字・前後の空白は無視)で
++  `SUBMITTED` のエントリーが既にあれば拒否します。`WITHDRAWN` なら再エントリー可。同時送信でもすり抜けません。
++- **エントリーの流量制限 (R-05)**: 1大会あたり1分間に60件を超える受付を拒否(DBトリガー)。
++  さらにAPIで、1IP・1大会あたり10分に30件までに制限します。
++- **スタッフの変更・削除 (R-06)**: 大会管理者(ADMIN以上)がロール変更・削除できます
++  (`/tournaments/[id]/members`)。OWNER の削除・降格と、自分自身の変更・削除はできません。
++  OWNER を新たに付与することもできません(DBトリガーでも強制)。変更は監査ログに残ります。
++- DB回帰テスト: `tests/db/0011_entry_guard_and_member_protection.sql`(実行方法はファイル冒頭)。
++
+ ### 既知の制約
+ 
+ - `round_participants` の得点キャッシュは、得点操作ロール(OWNER/ADMIN/SCORE_OPERATOR)が
+   RPC `apply_round_computation` で直接書けます(計算結果をクライアントが渡す設計のため)。
+   イベントログ(`score_events`)は追記専用で、次のイベント記録時にキャッシュは再計算されます。
+-- 未実装の主な要件: スタッフの削除・ロール変更(R-06)、エントリーAPIのレート制限と重複防止(R-05)、
+-  大会ステータスの訂正・中止(R-08)。
++- 未実装の主な要件: 大会ステータスの訂正・中止(R-08)、`database.ts` の `supabase gen types` への置換(D-04)、
++  `/export` への表示レイアウトの追加(D-03)。
++- エントリーの流量制限(IP単位)はメモリ内のベストエフォートです(サーバーレスでは複数インスタンスに分かれる)。
++  DB を直接叩く経路に対しては、大会単位の上限(1分あたり60件)がマイグレーション 0011 のトリガーで効きます。
+ 
+ ### シミュレーション
+ 
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/members/invite-form.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/members/invite-form.tsx
+index b36ddde..1b9e97b 100644
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/members/invite-form.tsx
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/members/invite-form.tsx
+@@ -2,16 +2,7 @@
+ 
+ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+-
+-const ROLE_OPTIONS = [
+-  { value: "ADMIN", label: "大会管理者" },
+-  { value: "QUESTION_MANAGER", label: "問題管理者" },
+-  { value: "SCORE_OPERATOR", label: "得点オペレーター" },
+-  { value: "GRADER", label: "採点担当" },
+-  { value: "STREAM_OPERATOR", label: "配信担当" },
+-  { value: "VENUE_STAFF", label: "会場スタッフ" },
+-  { value: "VIEWER", label: "閲覧専用" },
+-];
++import { ROLE_OPTIONS } from "./role-options";
+ 
+ export function InviteForm({ tournamentId }: { tournamentId: string }) {
+   const router = useRouter();
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/members/member-actions.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/members/member-actions.tsx
+new file mode 100644
+index 0000000..7f75804
+--- /dev/null
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/members/member-actions.tsx
+@@ -0,0 +1,91 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { requestJson } from "@/lib/api/request";
++import { ROLE_OPTIONS } from "./role-options";
++
++/**
++ * 1人分のスタッフ操作(ロール変更・削除)。失敗したら必ず画面にエラーを出す。
++ * OWNER と自分自身には表示しない(呼び出し側で判定)。
++ */
++export function MemberActions({
++  tournamentId,
++  memberId,
++  currentRole,
++  displayName,
++}: {
++  tournamentId: string;
++  memberId: string;
++  currentRole: string;
++  displayName: string;
++}) {
++  const router = useRouter();
++  const [pending, setPending] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function changeRole(role: string) {
++    if (role === currentRole) return;
++    setPending(true);
++    setError(null);
++    const r = await requestJson(`/api/tournaments/${tournamentId}/members/${memberId}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ role }),
++    });
++    setPending(false);
++    if (!r.ok) {
++      setError(r.message);
++      return;
++    }
++    router.refresh();
++  }
++
++  async function remove() {
++    if (!window.confirm(`${displayName} をスタッフから外しますか?`)) return;
++    setPending(true);
++    setError(null);
++    const r = await requestJson(`/api/tournaments/${tournamentId}/members/${memberId}`, {
++      method: "DELETE",
++    });
++    setPending(false);
++    if (!r.ok) {
++      setError(r.message);
++      return;
++    }
++    router.refresh();
++  }
++
++  return (
++    <div className="flex flex-col items-end gap-1">
++      <div className="flex items-center gap-2">
++        <select
++          value={currentRole}
++          disabled={pending}
++          onChange={(e) => changeRole(e.target.value)}
++          aria-label={`${displayName} のロール`}
++          className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
++        >
++          {ROLE_OPTIONS.map((o) => (
++            <option key={o.value} value={o.value}>
++              {o.label}
++            </option>
++          ))}
++        </select>
++        <button
++          type="button"
++          onClick={remove}
++          disabled={pending}
++          className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
++        >
++          外す
++        </button>
++      </div>
++      {error && (
++        <p role="alert" className="text-xs text-red-600">
++          {error}
++        </p>
++      )}
++    </div>
++  );
++}
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/members/page.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/members/page.tsx
+index 96385b4..e5f3728 100644
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/members/page.tsx
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/members/page.tsx
+@@ -1,8 +1,9 @@
+ import { notFound, redirect } from "next/navigation";
+ import { createClient } from "@/lib/supabase/server";
+-import { getTournamentRole } from "@/lib/auth/current-user";
++import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+ import { InviteForm } from "./invite-form";
++import { MemberActions } from "./member-actions";
+ 
+ export default async function MembersPage({
+   params,
+@@ -17,10 +18,11 @@ export default async function MembersPage({
+     redirect(`/tournaments/${tournamentId}`);
+   }
+ 
++  const currentUser = await getCurrentUser();
+   const supabase = await createClient();
+   const { data: members } = await supabase
+     .from("tournament_members")
+-    .select("id, role, created_at, profiles ( display_name, email )")
++    .select("id, user_id, role, created_at, profiles ( display_name, email )")
+     .eq("tournament_id", tournamentId)
+     .order("created_at", { ascending: true });
+ 
+@@ -46,9 +48,19 @@ export default async function MembersPage({
+                 </p>
+                 <p className="text-xs text-slate-500">{profile?.email}</p>
+               </div>
+-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+-                {m.role}
+-              </span>
++              {m.role === "OWNER" || m.user_id === currentUser?.id ? (
++                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
++                  {m.role}
++                  {m.user_id === currentUser?.id ? "(自分)" : ""}
++                </span>
++              ) : (
++                <MemberActions
++                  tournamentId={tournamentId}
++                  memberId={m.id}
++                  currentRole={m.role}
++                  displayName={profile?.display_name ?? profile?.email ?? "スタッフ"}
++                />
++              )}
+             </li>
+           );
+         })}
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/members/role-options.ts b/src/app/(dashboard)/tournaments/[tournamentId]/members/role-options.ts
+new file mode 100644
+index 0000000..3926ed5
+--- /dev/null
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/members/role-options.ts
+@@ -0,0 +1,10 @@
++// スタッフに付与できるロールの表示名 (OWNER は付与不可なので含めない)
++export const ROLE_OPTIONS = [
++  { value: "ADMIN", label: "大会管理者" },
++  { value: "QUESTION_MANAGER", label: "問題管理者" },
++  { value: "SCORE_OPERATOR", label: "得点オペレーター" },
++  { value: "GRADER", label: "採点担当" },
++  { value: "STREAM_OPERATOR", label: "配信担当" },
++  { value: "VENUE_STAFF", label: "会場スタッフ" },
++  { value: "VIEWER", label: "閲覧専用" },
++] as const;
+diff --git a/src/app/api/tournaments/[tournamentId]/entries/route.ts b/src/app/api/tournaments/[tournamentId]/entries/route.ts
+index 512adae..4a9696a 100644
+--- a/src/app/api/tournaments/[tournamentId]/entries/route.ts
++++ b/src/app/api/tournaments/[tournamentId]/entries/route.ts
+@@ -4,12 +4,19 @@ import { createClient } from "@/lib/supabase/server";
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+ import { buildEntrySearchFilter } from "@/lib/supabase/filters";
++import { mapEntryInsertError } from "@/lib/entries/guard";
++import { clientIpFrom, createRateLimiter } from "@/lib/rate-limit";
++
++// 公開フォームの前段のレート制限 (R-05)。同じ会場・学校のWi-Fi(同一IP)から
++// 多人数が同時に申し込む場面を考慮して、1IP・1大会あたり10分に30件までとする。
++// DBトリガーによる大会単位の上限・重複防止が本当の防御線(0011参照)。
++const entryRateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 });
+ 
+ const answerValueSchema = z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]);
+ 
+ const submitSchema = z.object({
+   displayName: z.string().min(1, "表示名を入力してください").max(200),
+-  email: z.string().email("メールアドレスの形式が正しくありません"),
++  email: z.string().trim().email("メールアドレスの形式が正しくありません"),
+   affiliation: z.string().max(200).optional(),
+   answers: z.record(z.string(), answerValueSchema).optional(),
+ });
+@@ -59,6 +66,18 @@ export async function GET(request: Request, { params }: RouteParams) {
+ // and because a clean 400 is a much better UX than a raw DB error.
+ export async function POST(request: Request, { params }: RouteParams) {
+   const { tournamentId } = await params;
++
++  const limit = entryRateLimiter.check(`${tournamentId}:${clientIpFrom(request.headers)}`);
++  if (!limit.allowed) {
++    return NextResponse.json(
++      {
++        error: "rate_limited",
++        message: "短時間に送信が集中しています。しばらく待ってからもう一度お試しください",
++      },
++      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
++    );
++  }
++
+   const body = await request.json().catch(() => null);
+   const parsed = submitSchema.safeParse(body);
+   if (!parsed.success) {
+@@ -107,16 +126,9 @@ export async function POST(request: Request, { params }: RouteParams) {
+   });
+ 
+   if (error) {
+-    // RLS violation surfaces as a generic permissions error - translate it
+-    // into something the entrant can understand (entries are closed).
+-    const closed = error.message.toLowerCase().includes("row-level security");
+-    return NextResponse.json(
+-      {
+-        error: closed ? "entries_closed" : error.message,
+-        message: closed ? "現在この大会はエントリーを受け付けていません" : undefined,
+-      },
+-      { status: closed ? 409 : 500 }
+-    );
++    // 重複(23505)・受付上限(QS429)・受付終了(RLS)を、入力者に分かる形で返す
++    const mapped = mapEntryInsertError(error);
++    return NextResponse.json(mapped.body, { status: mapped.status, headers: mapped.headers });
+   }
+ 
+   return NextResponse.json({ ok: true }, { status: 201 });
+diff --git a/src/app/api/tournaments/[tournamentId]/members/[memberId]/route.ts b/src/app/api/tournaments/[tournamentId]/members/[memberId]/route.ts
+new file mode 100644
+index 0000000..d05d3fb
+--- /dev/null
++++ b/src/app/api/tournaments/[tournamentId]/members/[memberId]/route.ts
+@@ -0,0 +1,177 @@
++import { NextResponse } from "next/server";
++import { z } from "zod";
++import { createClient } from "@/lib/supabase/server";
++import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
++import { can } from "@/lib/permissions";
++import { logAudit } from "@/lib/audit/log";
++import {
++  ASSIGNABLE_ROLES,
++  MEMBER_CHANGE_MESSAGES,
++  checkMemberChange,
++  mapMemberDbError,
++} from "@/lib/tournament/member-rules";
++
++const updateSchema = z.object({ role: z.enum(ASSIGNABLE_ROLES) });
++
++type RouteParams = { params: Promise<{ tournamentId: string; memberId: string }> };
++
++type TargetRow = {
++  id: string;
++  user_id: string;
++  role: import("@/types/database").TournamentMemberRole;
++  profiles: { display_name: string; email: string } | null;
++};
++
++async function loadTarget(tournamentId: string, memberId: string) {
++  const supabase = await createClient();
++  const { data, error } = await supabase
++    .from("tournament_members")
++    .select("id, user_id, role, profiles ( display_name, email )")
++    .eq("id", memberId)
++    .eq("tournament_id", tournamentId)
++    .maybeSingle();
++  return { supabase, target: data as unknown as TargetRow | null, error };
++}
++
++function label(target: TargetRow): string {
++  return target.profiles?.display_name || target.profiles?.email || "スタッフ";
++}
++
++// PATCH /api/tournaments/[tournamentId]/members/[memberId]  { role }
++// スタッフのロールを変更する (R-06)。OWNER と自分自身は対象外。
++export async function PATCH(request: Request, { params }: RouteParams) {
++  const { tournamentId, memberId } = await params;
++  const role = await getTournamentRole(tournamentId);
++  if (!can(role, "tournament:manage_staff")) {
++    return NextResponse.json({ error: "forbidden" }, { status: 403 });
++  }
++
++  const body = await request.json().catch(() => null);
++  const parsed = updateSchema.safeParse(body);
++  if (!parsed.success) {
++    return NextResponse.json(
++      { error: "invalid_input", message: "付与できないロールが指定されました" },
++      { status: 400 }
++    );
++  }
++
++  const user = await getCurrentUser();
++  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
++
++  const { supabase, target, error: loadError } = await loadTarget(tournamentId, memberId);
++  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
++  if (!target) {
++    return NextResponse.json(
++      { error: "not_found", message: "対象のスタッフが見つかりません" },
++      { status: 404 }
++    );
++  }
++
++  const violation = checkMemberChange({
++    actorUserId: user.id,
++    target: { userId: target.user_id, role: target.role },
++    newRole: parsed.data.role,
++  });
++  if (violation) {
++    return NextResponse.json(
++      { error: violation, message: MEMBER_CHANGE_MESSAGES[violation] },
++      { status: violation === "role_not_assignable" ? 400 : 403 }
++    );
++  }
++
++  if (target.role === parsed.data.role) {
++    return NextResponse.json({ member: { id: target.id, role: target.role } });
++  }
++
++  const { data: updated, error } = await supabase
++    .from("tournament_members")
++    .update({ role: parsed.data.role })
++    .eq("id", memberId)
++    .eq("tournament_id", tournamentId)
++    .select("id, user_id, role")
++    .maybeSingle();
++
++  if (error) {
++    const mapped = mapMemberDbError(error);
++    return NextResponse.json(mapped.body, { status: mapped.status });
++  }
++  // RLS に弾かれた場合はエラーにならず 0 行更新になる。成功扱いにしない
++  if (!updated) {
++    return NextResponse.json(
++      { error: "forbidden", message: "この操作を行う権限がありません" },
++      { status: 403 }
++    );
++  }
++
++  await logAudit(supabase, {
++    tournamentId,
++    actorId: user.id,
++    action: "member.role_changed",
++    summary: `${label(target)} のロールを ${target.role} から ${parsed.data.role} に変更しました`,
++    metadata: { memberId, userId: target.user_id, from: target.role, to: parsed.data.role },
++  });
++
++  return NextResponse.json({ member: updated });
++}
++
++// DELETE /api/tournaments/[tournamentId]/members/[memberId]
++// スタッフを大会から外す (R-06)。OWNER と自分自身は対象外。
++export async function DELETE(_request: Request, { params }: RouteParams) {
++  const { tournamentId, memberId } = await params;
++  const role = await getTournamentRole(tournamentId);
++  if (!can(role, "tournament:manage_staff")) {
++    return NextResponse.json({ error: "forbidden" }, { status: 403 });
++  }
++
++  const user = await getCurrentUser();
++  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
++
++  const { supabase, target, error: loadError } = await loadTarget(tournamentId, memberId);
++  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
++  if (!target) {
++    return NextResponse.json(
++      { error: "not_found", message: "対象のスタッフが見つかりません" },
++      { status: 404 }
++    );
++  }
++
++  const violation = checkMemberChange({
++    actorUserId: user.id,
++    target: { userId: target.user_id, role: target.role },
++  });
++  if (violation) {
++    return NextResponse.json(
++      { error: violation, message: MEMBER_CHANGE_MESSAGES[violation] },
++      { status: 403 }
++    );
++  }
++
++  const { data: deleted, error } = await supabase
++    .from("tournament_members")
++    .delete()
++    .eq("id", memberId)
++    .eq("tournament_id", tournamentId)
++    .select("id")
++    .maybeSingle();
++
++  if (error) {
++    const mapped = mapMemberDbError(error);
++    return NextResponse.json(mapped.body, { status: mapped.status });
++  }
++  if (!deleted) {
++    return NextResponse.json(
++      { error: "forbidden", message: "この操作を行う権限がありません" },
++      { status: 403 }
++    );
++  }
++
++  await logAudit(supabase, {
++    tournamentId,
++    actorId: user.id,
++    action: "member.removed",
++    summary: `${label(target)}(${target.role})をスタッフから外しました`,
++    metadata: { memberId, userId: target.user_id, role: target.role },
++  });
++
++  return NextResponse.json({ ok: true });
++}
+diff --git a/src/lib/entries/guard.ts b/src/lib/entries/guard.ts
+new file mode 100644
+index 0000000..f6157ea
+--- /dev/null
++++ b/src/lib/entries/guard.ts
+@@ -0,0 +1,48 @@
++/**
++ * 公開エントリーの INSERT 失敗を HTTP レスポンスに対応づける (R-05)。
++ *
++ * supabase/migrations/0011_entry_guard_and_member_protection.sql のトリガーは
++ * 次の形で失敗を表す:
++ *   23505 / entry_duplicate     : 同じ大会に同じメールで SUBMITTED のエントリーが既にある
++ *   QS429 / entry_rate_limited  : 大会単位の受付上限(1分間)を超えた
++ * RLS 違反(エントリー受付中ではない)は従来どおり 409 にする。
++ */
++export interface EntryInsertErrorLike {
++  message: string;
++  code?: string | null;
++}
++
++export interface MappedEntryError {
++  status: number;
++  headers?: Record<string, string>;
++  body: { error: string; message?: string };
++}
++
++export function mapEntryInsertError(error: EntryInsertErrorLike): MappedEntryError {
++  if (error.code === "23505" || error.message.includes("entry_duplicate")) {
++    return {
++      status: 409,
++      body: {
++        error: "entry_duplicate",
++        message: "このメールアドレスは既にエントリー済みです。変更や取り下げは主催者にご連絡ください",
++      },
++    };
++  }
++  if (error.code === "QS429" || error.message.includes("entry_rate_limited")) {
++    return {
++      status: 429,
++      headers: { "Retry-After": "60" },
++      body: {
++        error: "entry_rate_limited",
++        message: "短時間にエントリーが集中しています。1分ほど待ってからもう一度お試しください",
++      },
++    };
++  }
++  if (error.message.toLowerCase().includes("row-level security")) {
++    return {
++      status: 409,
++      body: { error: "entries_closed", message: "現在この大会はエントリーを受け付けていません" },
++    };
++  }
++  return { status: 500, body: { error: error.message } };
++}
+diff --git a/src/lib/rate-limit.ts b/src/lib/rate-limit.ts
+new file mode 100644
+index 0000000..6b1ae56
+--- /dev/null
++++ b/src/lib/rate-limit.ts
+@@ -0,0 +1,72 @@
++/**
++ * 固定ウィンドウ方式のメモリ内レート制限 (R-05)。
++ *
++ * 位置づけ: ベストエフォート。プロセスごとのメモリに保持するため、サーバーレス
++ * 環境で複数インスタンスに分かれると、インスタンスごとに数えることになる。
++ * DB を直接叩く経路は止められないので、本当の防御線は DB トリガー
++ * (0011 の guard_entry_insert) であり、これは「普通のスクリプトの連打」を
++ * 早めに弾いて DB と無料枠を守るための前段。
++ */
++export interface RateLimitResult {
++  allowed: boolean;
++  /** 次に許可されるまでの秒数 (allowed=false のときのみ > 0) */
++  retryAfterSeconds: number;
++}
++
++export interface RateLimiter {
++  check(key: string): RateLimitResult;
++}
++
++export function createRateLimiter(options: {
++  limit: number;
++  windowMs: number;
++  /** テスト用に時刻を差し替える */
++  now?: () => number;
++  /** 保持するキー数の上限。超えたら期限切れを掃除する */
++  maxKeys?: number;
++}): RateLimiter {
++  const { limit, windowMs } = options;
++  const now = options.now ?? Date.now;
++  const maxKeys = options.maxKeys ?? 10_000;
++  const buckets = new Map<string, { windowStart: number; count: number }>();
++
++  function sweep(t: number) {
++    for (const [key, b] of buckets) {
++      if (t - b.windowStart >= windowMs) buckets.delete(key);
++    }
++  }
++
++  return {
++    check(key) {
++      const t = now();
++      if (buckets.size >= maxKeys) sweep(t);
++
++      const b = buckets.get(key);
++      if (!b || t - b.windowStart >= windowMs) {
++        buckets.set(key, { windowStart: t, count: 1 });
++        return { allowed: true, retryAfterSeconds: 0 };
++      }
++      if (b.count >= limit) {
++        return {
++          allowed: false,
++          retryAfterSeconds: Math.max(1, Math.ceil((b.windowStart + windowMs - t) / 1000)),
++        };
++      }
++      b.count += 1;
++      return { allowed: true, retryAfterSeconds: 0 };
++    },
++  };
++}
++
++/**
++ * リクエスト元のIP。リバースプロキシ(Vercel等)の背後でのみ信頼できる値。
++ * 取れないときは "unknown" としてまとめて数える。
++ */
++export function clientIpFrom(headers: Headers): string {
++  const forwarded = headers.get("x-forwarded-for");
++  if (forwarded) {
++    const first = forwarded.split(",")[0]?.trim();
++    if (first) return first;
++  }
++  return headers.get("x-real-ip")?.trim() || "unknown";
++}
+diff --git a/src/lib/tournament/member-rules.ts b/src/lib/tournament/member-rules.ts
+new file mode 100644
+index 0000000..0170eb0
+--- /dev/null
++++ b/src/lib/tournament/member-rules.ts
+@@ -0,0 +1,69 @@
++import type { TournamentMemberRole } from "@/types/database";
++
++/**
++ * スタッフ(tournament_members)の変更ルール (R-06)。
++ *
++ * 権限そのもの(manage_staff を持つか)は ROLE_ACTIONS / can() が判定する。
++ * ここは「manage_staff を持つ人が、誰に何をしてよいか」の業務ルール。
++ * DB 側は 0011 のトリガーが OWNER 関連だけを同じ内容で強制する(二重化)。
++ */
++export const ASSIGNABLE_ROLES = [
++  "ADMIN",
++  "QUESTION_MANAGER",
++  "SCORE_OPERATOR",
++  "GRADER",
++  "STREAM_OPERATOR",
++  "VENUE_STAFF",
++  "VIEWER",
++] as const satisfies readonly TournamentMemberRole[];
++
++export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
++
++export type MemberChangeError =
++  | "target_is_owner"
++  | "cannot_change_self"
++  | "role_not_assignable";
++
++export interface MemberChangeInput {
++  actorUserId: string;
++  target: { userId: string; role: TournamentMemberRole };
++  /** ロール変更のときだけ指定する。削除のときは省略 */
++  newRole?: TournamentMemberRole;
++}
++
++export const MEMBER_CHANGE_MESSAGES: Record<MemberChangeError, string> = {
++  target_is_owner: "大会の作成者(OWNER)の権限は変更・削除できません",
++  cannot_change_self: "自分自身の権限の変更・削除はできません。他の管理者に依頼してください",
++  role_not_assignable: "そのロールは付与できません",
++};
++
++export function checkMemberChange(input: MemberChangeInput): MemberChangeError | null {
++  if (input.target.role === "OWNER") return "target_is_owner";
++  if (input.target.userId === input.actorUserId) return "cannot_change_self";
++  if (
++    input.newRole !== undefined &&
++    !(ASSIGNABLE_ROLES as readonly string[]).includes(input.newRole)
++  ) {
++    return "role_not_assignable";
++  }
++  return null;
++}
++
++export function mapMemberDbError(error: { message: string; code?: string | null }): {
++  status: number;
++  body: { error: string; message: string };
++} {
++  if (error.message.includes("owner_")) {
++    return {
++      status: 403,
++      body: { error: "target_is_owner", message: MEMBER_CHANGE_MESSAGES.target_is_owner },
++    };
++  }
++  if (error.code === "42501") {
++    return {
++      status: 403,
++      body: { error: "forbidden", message: "この操作を行う権限がありません" },
++    };
++  }
++  return { status: 500, body: { error: "internal_error", message: error.message } };
++}
+diff --git a/supabase/migrations/0011_entry_guard_and_member_protection.sql b/supabase/migrations/0011_entry_guard_and_member_protection.sql
+new file mode 100644
+index 0000000..39bc1a9
+--- /dev/null
++++ b/supabase/migrations/0011_entry_guard_and_member_protection.sql
+@@ -0,0 +1,143 @@
++-- =============================================================================
++-- Q-Score Pro : 0011
++-- エントリーの重複防止・流量制限 / スタッフ(tournament_members)のOWNER保護
++--
++-- 対応する要件 (CONTRIBUTING.md 8.2章 / codereview.md):
++--   R-05 (Issue 4) 公開エントリーAPIのレート制限と重複防止
++--   R-06 (Issue 5) スタッフの削除・ロール変更(OWNERの削除・降格は不可)
++--
++-- 設計方針:
++-- - 公開エントリーは、匿名ユーザーが PostgREST を直接叩いても INSERT できる
++--   (RLS: entries_insert_public_when_open)。アプリ層だけの制限は回避されるため、
++--   重複防止と流量制限は DB のトリガーで行う。
++-- - 重複判定は (tournament_id, lower(email)) で、状態が SUBMITTED の行のみが対象。
++--   WITHDRAWN(取り下げ)済みの人は再エントリーできる。
++--   同時送信でもすり抜けないよう、メールごとに advisory lock を取って直列化する。
++-- - 流量制限は大会単位(1分間の受付上限)。IP単位の制限は DB からは信頼できる
++--   IP が取れないため、APIルート側のベストエフォートで行う。
++-- - tournament_members の OWNER は「大会作成者(tournaments.owner_id)だけ」が持てる。
++--   既存のRLS(admin は insert/update/delete 可)では、ADMIN が OWNER を新規付与したり
++--   OWNER を降格・削除できてしまうため、トリガーで塞ぐ。
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- 1. R-05 : entries の重複防止と流量制限
++-- ---------------------------------------------------------------------------
++
++-- 重複判定用の部分インデックス (一意制約ではなく、トリガーが一意性を保証する。
++-- 既存データに重複がある環境でもマイグレーションが失敗しないようにするため)
++create index entries_tournament_lower_email_idx
++  on public.entries (tournament_id, lower(email))
++  where status = 'SUBMITTED';
++
++create function public.guard_entry_insert()
++returns trigger
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  -- 1大会あたり、1分間に受け付けるエントリー数の上限。
++  -- 人気大会の受付開始直後の集中(数十件/分)は許容し、機械的な大量投入を止める値。
++  c_max_per_minute constant int := 60;
++  v_recent int;
++begin
++  new.email := btrim(new.email);
++
++  -- 同じ大会・同じメールの同時INSERTを直列化する
++  perform pg_advisory_xact_lock(
++    hashtextextended('entries:' || new.tournament_id::text || ':' || lower(new.email), 0)
++  );
++
++  if new.status = 'SUBMITTED' and exists (
++    select 1
++    from public.entries e
++    where e.tournament_id = new.tournament_id
++      and lower(e.email) = lower(new.email)
++      and e.status = 'SUBMITTED'
++  ) then
++    raise exception 'entry_duplicate'
++      using errcode = '23505',
++            hint = 'このメールアドレスは、この大会に既にエントリー済みです';
++  end if;
++
++  select count(*) into v_recent
++  from public.entries e
++  where e.tournament_id = new.tournament_id
++    and e.submitted_at > now() - interval '1 minute';
++
++  if v_recent >= c_max_per_minute then
++    raise exception 'entry_rate_limited'
++      using errcode = 'QS429',
++            hint = '短時間にエントリーが集中しています。少し待ってから再度お試しください';
++  end if;
++
++  return new;
++end;
++$$;
++
++create trigger guard_entries_insert
++  before insert on public.entries
++  for each row execute procedure public.guard_entry_insert();
++
++-- ---------------------------------------------------------------------------
++-- 2. R-06 : tournament_members の OWNER 保護
++-- ---------------------------------------------------------------------------
++
++create function public.guard_tournament_member_change()
++returns trigger
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_owner_id uuid;
++begin
++  if tg_op = 'INSERT' then
++    -- OWNER を持てるのは大会作成者だけ (作成直後の bootstrap 登録)
++    if new.role = 'OWNER' then
++      select t.owner_id into v_owner_id from public.tournaments t where t.id = new.tournament_id;
++      if new.user_id is distinct from v_owner_id then
++        raise exception 'owner_role_reserved'
++          using errcode = '42501',
++                hint = 'OWNER は大会の作成者のみが持てます';
++      end if;
++    end if;
++    return new;
++
++  elsif tg_op = 'UPDATE' then
++    if new.tournament_id is distinct from old.tournament_id
++       or new.user_id is distinct from old.user_id then
++      raise exception 'member_identity_immutable'
++        using errcode = '22023',
++              hint = 'スタッフの大会・ユーザーは変更できません';
++    end if;
++    if old.role = 'OWNER' and new.role <> 'OWNER' then
++      raise exception 'owner_cannot_be_demoted'
++        using errcode = '42501',
++              hint = 'OWNER の権限は変更できません';
++    end if;
++    if new.role = 'OWNER' and old.role <> 'OWNER' then
++      raise exception 'owner_role_reserved'
++        using errcode = '42501',
++              hint = 'OWNER は大会の作成者のみが持てます';
++    end if;
++    return new;
++
++  else -- DELETE
++    -- 大会そのものが削除されている最中(カスケード)は OWNER 行も消えてよい。
++    -- 大会が存在する間は OWNER を削除できない。
++    if old.role = 'OWNER'
++       and exists (select 1 from public.tournaments t where t.id = old.tournament_id) then
++      raise exception 'owner_cannot_be_removed'
++        using errcode = '42501',
++              hint = 'OWNER は削除できません';
++    end if;
++    return old;
++  end if;
++end;
++$$;
++
++create trigger guard_tournament_members_change
++  before insert or update or delete on public.tournament_members
++  for each row execute procedure public.guard_tournament_member_change();
+diff --git a/tests/db/0011_entry_guard_and_member_protection.sql b/tests/db/0011_entry_guard_and_member_protection.sql
+new file mode 100644
+index 0000000..f4cdfdc
+--- /dev/null
++++ b/tests/db/0011_entry_guard_and_member_protection.sql
+@@ -0,0 +1,158 @@
++-- =============================================================================
++-- DB回帰テスト: 0011 (R-05 エントリーの重複防止・流量制限 / R-06 OWNER保護)
++--
++-- 実行方法 (ローカルSupabaseを起動した状態で。全体をロールバックするので何も残らない):
++--   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
++--     -v ON_ERROR_STOP=1 -f tests/db/0011_entry_guard_and_member_protection.sql
++-- 成功すると最後に "ALL PASSED" が出る。失敗すると "FAIL: ..." で止まる。
++-- =============================================================================
++begin;
++
++insert into auth.users (id, email) values
++  ('00000000-0000-0000-0000-00000000000a', 'owner@t.example'),
++  ('00000000-0000-0000-0000-00000000000b', 'admin@t.example'),
++  ('00000000-0000-0000-0000-00000000000c', 'op@t.example');
++
++insert into public.tournaments (id, slug, name, status, owner_id) values
++  ('10000000-0000-0000-0000-000000000001', 't-guard-open', 'T', 'REGISTRATION_OPEN', '00000000-0000-0000-0000-00000000000a'),
++  ('10000000-0000-0000-0000-000000000002', 't-guard-del',  'D', 'DRAFT',             '00000000-0000-0000-0000-00000000000a');
++
++insert into public.tournament_members (tournament_id, user_id, role) values
++  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'OWNER'),
++  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'ADMIN'),
++  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c', 'SCORE_OPERATOR'),
++  ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000a', 'OWNER');
++
++-- ---------------------------------------------------------------------------
++-- R-05: 匿名ユーザーによるエントリー
++-- ---------------------------------------------------------------------------
++do $$
++declare v_hit boolean;
++begin
++  set local role anon;
++
++  insert into public.entries (tournament_id, display_name, email)
++  values ('10000000-0000-0000-0000-000000000001', 'A', 'Foo@Example.com');
++
++  -- 大文字小文字・前後の空白が違っても同じメールとして重複扱い
++  v_hit := false;
++  begin
++    insert into public.entries (tournament_id, display_name, email)
++    values ('10000000-0000-0000-0000-000000000001', 'B', '  foo@example.COM ');
++  exception when others then
++    v_hit := (sqlstate = '23505' and sqlerrm = 'entry_duplicate');
++  end;
++  if not v_hit then raise exception 'FAIL: 同じメールの重複エントリーが拒否されない'; end if;
++
++  -- 別のメールは通る
++  insert into public.entries (tournament_id, display_name, email)
++  values ('10000000-0000-0000-0000-000000000001', 'C', 'bar@example.com');
++
++  reset role;
++  -- 取り下げ済みなら同じメールで再エントリーできる
++  update public.entries set status = 'WITHDRAWN' where lower(email) = 'foo@example.com';
++  set local role anon;
++  insert into public.entries (tournament_id, display_name, email)
++  values ('10000000-0000-0000-0000-000000000001', 'A2', 'foo@example.com');
++  reset role;
++end $$;
++
++do $$
++declare
++  v_hit boolean := false;
++  v_ok int := 0;
++  i int;
++begin
++  set local role anon;
++  -- ここまでに3件。1分間の上限(60件)に達したら QS429 で止まる
++  for i in 1..70 loop
++    begin
++      insert into public.entries (tournament_id, display_name, email)
++      values ('10000000-0000-0000-0000-000000000001', 'u' || i, 'u' || i || '@e.example');
++      v_ok := v_ok + 1;
++    exception when others then
++      v_hit := (sqlstate = 'QS429' and sqlerrm = 'entry_rate_limited');
++      exit;
++    end;
++  end loop;
++  reset role;
++  if not v_hit then raise exception 'FAIL: 流量制限(QS429)に達しない'; end if;
++  if v_ok <> 57 then raise exception 'FAIL: 上限までの受付件数が想定と違う (got %, want 57)', v_ok; end if;
++end $$;
++
++-- ---------------------------------------------------------------------------
++-- R-06: ADMIN によるスタッフ操作
++-- ---------------------------------------------------------------------------
++do $$
++declare
++  v_hit boolean;
++  c_t constant uuid := '10000000-0000-0000-0000-000000000001';
++  c_op constant uuid := '00000000-0000-0000-0000-00000000000c';
++begin
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-00000000000b', 'role', 'authenticated')::text, true);
++  set local role authenticated;
++
++  -- OWNER の降格は不可
++  v_hit := false;
++  begin
++    update public.tournament_members set role = 'VIEWER' where tournament_id = c_t and role = 'OWNER';
++  exception when others then v_hit := (sqlerrm = 'owner_cannot_be_demoted'); end;
++  if not v_hit then raise exception 'FAIL: ADMIN が OWNER を降格できてしまう'; end if;
++
++  -- OWNER の削除は不可
++  v_hit := false;
++  begin
++    delete from public.tournament_members where tournament_id = c_t and role = 'OWNER';
++  exception when others then v_hit := (sqlerrm = 'owner_cannot_be_removed'); end;
++  if not v_hit then raise exception 'FAIL: ADMIN が OWNER を削除できてしまう'; end if;
++
++  -- 他人を OWNER に昇格できない
++  v_hit := false;
++  begin
++    update public.tournament_members set role = 'OWNER' where user_id = c_op;
++  exception when others then v_hit := (sqlerrm = 'owner_role_reserved'); end;
++  if not v_hit then raise exception 'FAIL: ADMIN が OWNER を新規に付与できる(UPDATE)'; end if;
++
++  -- OWNER 行を直接 INSERT することもできない
++  delete from public.tournament_members where user_id = c_op;
++  v_hit := false;
++  begin
++    insert into public.tournament_members (tournament_id, user_id, role) values (c_t, c_op, 'OWNER');
++  exception when others then v_hit := (sqlerrm = 'owner_role_reserved'); end;
++  if not v_hit then raise exception 'FAIL: ADMIN が OWNER を新規に付与できる(INSERT)'; end if;
++
++  -- 一般スタッフの追加・ロール変更・削除は通る
++  insert into public.tournament_members (tournament_id, user_id, role) values (c_t, c_op, 'SCORE_OPERATOR');
++  update public.tournament_members set role = 'GRADER' where user_id = c_op;
++  if (select role from public.tournament_members where user_id = c_op and tournament_id = c_t) <> 'GRADER' then
++    raise exception 'FAIL: ロール変更が反映されない';
++  end if;
++
++  -- 行の付け替え(user_id の変更)は不可
++  v_hit := false;
++  begin
++    update public.tournament_members
++       set user_id = '00000000-0000-0000-0000-00000000000b' where user_id = c_op;
++  exception when others then v_hit := (sqlerrm = 'member_identity_immutable'); end;
++  if not v_hit then raise exception 'FAIL: user_id を付け替えられる'; end if;
++
++  delete from public.tournament_members where user_id = c_op and tournament_id = c_t;
++  reset role;
++  if exists (select 1 from public.tournament_members where user_id = c_op and tournament_id = c_t) then
++    raise exception 'FAIL: 一般スタッフを削除できない';
++  end if;
++end $$;
++
++-- 大会を削除すると OWNER 行もカスケードで消える(保護トリガーが邪魔しない)
++do $$
++begin
++  delete from public.tournaments where id = '10000000-0000-0000-0000-000000000002';
++  if exists (select 1 from public.tournament_members where tournament_id = '10000000-0000-0000-0000-000000000002') then
++    raise exception 'FAIL: 大会削除のカスケードで OWNER 行が残る';
++  end if;
++end $$;
++
++select 'ALL PASSED' as result;
++rollback;
+diff --git a/tests/unit/entry-guard.test.ts b/tests/unit/entry-guard.test.ts
+new file mode 100644
+index 0000000..925fc03
+--- /dev/null
++++ b/tests/unit/entry-guard.test.ts
+@@ -0,0 +1,36 @@
++import { describe, expect, it } from "vitest";
++import { mapEntryInsertError } from "@/lib/entries/guard";
++
++describe("mapEntryInsertError (R-05)", () => {
++  it("重複(23505)は 409 entry_duplicate", () => {
++    const r = mapEntryInsertError({ code: "23505", message: "entry_duplicate" });
++    expect(r.status).toBe(409);
++    expect(r.body.error).toBe("entry_duplicate");
++    expect(r.body.message).toContain("既にエントリー済み");
++  });
++
++  it("コードが落ちてもメッセージで重複を判定できる", () => {
++    expect(mapEntryInsertError({ message: "entry_duplicate" }).status).toBe(409);
++  });
++
++  it("受付上限(QS429)は 429 で Retry-After を返す", () => {
++    const r = mapEntryInsertError({ code: "QS429", message: "entry_rate_limited" });
++    expect(r.status).toBe(429);
++    expect(r.headers?.["Retry-After"]).toBe("60");
++    expect(r.body.error).toBe("entry_rate_limited");
++  });
++
++  it("RLS違反(受付中ではない)は 409 entries_closed", () => {
++    const r = mapEntryInsertError({
++      code: "42501",
++      message: 'new row violates row-level security policy for table "entries"',
++    });
++    expect(r.status).toBe(409);
++    expect(r.body.error).toBe("entries_closed");
++  });
++
++  it("想定外のエラーは 500 でメッセージをそのまま返す", () => {
++    const r = mapEntryInsertError({ code: "XX000", message: "boom" });
++    expect(r).toEqual({ status: 500, body: { error: "boom" } });
++  });
++});
+diff --git a/tests/unit/member-rules.test.ts b/tests/unit/member-rules.test.ts
+new file mode 100644
+index 0000000..91f9b3d
+--- /dev/null
++++ b/tests/unit/member-rules.test.ts
+@@ -0,0 +1,66 @@
++import { describe, expect, it } from "vitest";
++import {
++  ASSIGNABLE_ROLES,
++  checkMemberChange,
++  mapMemberDbError,
++} from "@/lib/tournament/member-rules";
++
++const ME = "user-me";
++
++describe("checkMemberChange (R-06)", () => {
++  it("OWNER は変更も削除もできない", () => {
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: "u1", role: "OWNER" }, newRole: "VIEWER" })
++    ).toBe("target_is_owner");
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: "u1", role: "OWNER" } })
++    ).toBe("target_is_owner");
++  });
++
++  it("自分自身は変更も削除もできない", () => {
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: ME, role: "ADMIN" }, newRole: "VIEWER" })
++    ).toBe("cannot_change_self");
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: ME, role: "ADMIN" } })
++    ).toBe("cannot_change_self");
++  });
++
++  it("OWNER ロールは付与できない", () => {
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: "u1", role: "VIEWER" }, newRole: "OWNER" })
++    ).toBe("role_not_assignable");
++  });
++
++  it("一般スタッフのロール変更・削除は許可される", () => {
++    expect(
++      checkMemberChange({
++        actorUserId: ME,
++        target: { userId: "u1", role: "VIEWER" },
++        newRole: "SCORE_OPERATOR",
++      })
++    ).toBeNull();
++    expect(
++      checkMemberChange({ actorUserId: ME, target: { userId: "u1", role: "GRADER" } })
++    ).toBeNull();
++  });
++
++  it("付与できるロールに OWNER は含まれず、OWNER 以外は全て含まれる", () => {
++    expect(ASSIGNABLE_ROLES).not.toContain("OWNER");
++    expect(ASSIGNABLE_ROLES).toHaveLength(7);
++  });
++});
++
++describe("mapMemberDbError", () => {
++  it("DBトリガーの owner_* エラーは 403 target_is_owner", () => {
++    const r = mapMemberDbError({ code: "42501", message: "owner_cannot_be_demoted" });
++    expect(r.status).toBe(403);
++    expect(r.body.error).toBe("target_is_owner");
++  });
++  it("その他の権限エラーは 403 forbidden", () => {
++    expect(mapMemberDbError({ code: "42501", message: "rls" }).body.error).toBe("forbidden");
++  });
++  it("想定外は 500", () => {
++    expect(mapMemberDbError({ message: "boom" }).status).toBe(500);
++  });
++});
+diff --git a/tests/unit/rate-limit.test.ts b/tests/unit/rate-limit.test.ts
+new file mode 100644
+index 0000000..98acb75
+--- /dev/null
++++ b/tests/unit/rate-limit.test.ts
+@@ -0,0 +1,60 @@
++import { describe, expect, it } from "vitest";
++import { clientIpFrom, createRateLimiter } from "@/lib/rate-limit";
++
++function clock(start = 0) {
++  let t = start;
++  return { now: () => t, advance: (ms: number) => (t += ms) };
++}
++
++describe("createRateLimiter", () => {
++  it("上限までは許可し、超えたら拒否して待ち時間を返す", () => {
++    const c = clock();
++    const rl = createRateLimiter({ limit: 3, windowMs: 60_000, now: c.now });
++    expect(rl.check("a").allowed).toBe(true);
++    expect(rl.check("a").allowed).toBe(true);
++    expect(rl.check("a").allowed).toBe(true);
++    c.advance(20_000);
++    const blocked = rl.check("a");
++    expect(blocked.allowed).toBe(false);
++    expect(blocked.retryAfterSeconds).toBe(40);
++  });
++
++  it("ウィンドウが過ぎればリセットされる", () => {
++    const c = clock();
++    const rl = createRateLimiter({ limit: 1, windowMs: 1000, now: c.now });
++    expect(rl.check("a").allowed).toBe(true);
++    expect(rl.check("a").allowed).toBe(false);
++    c.advance(1000);
++    expect(rl.check("a").allowed).toBe(true);
++  });
++
++  it("キーごとに独立して数える", () => {
++    const rl = createRateLimiter({ limit: 1, windowMs: 1000, now: clock().now });
++    expect(rl.check("t1:1.1.1.1").allowed).toBe(true);
++    expect(rl.check("t1:2.2.2.2").allowed).toBe(true);
++    expect(rl.check("t2:1.1.1.1").allowed).toBe(true);
++    expect(rl.check("t1:1.1.1.1").allowed).toBe(false);
++  });
++
++  it("キー数が上限を超えたら期限切れのキーを掃除する", () => {
++    const c = clock();
++    const rl = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 2, now: c.now });
++    rl.check("a");
++    rl.check("b");
++    c.advance(5000);
++    // 掃除されるので、期限切れの a は新しいウィンドウとして許可される
++    expect(rl.check("c").allowed).toBe(true);
++    expect(rl.check("a").allowed).toBe(true);
++  });
++});
++
++describe("clientIpFrom", () => {
++  it("x-forwarded-for の先頭を使う", () => {
++    const h = new Headers({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
++    expect(clientIpFrom(h)).toBe("203.0.113.5");
++  });
++  it("無ければ x-real-ip、それも無ければ unknown", () => {
++    expect(clientIpFrom(new Headers({ "x-real-ip": "198.51.100.7" }))).toBe("198.51.100.7");
++    expect(clientIpFrom(new Headers())).toBe("unknown");
++  });
++});
