@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
+import { buildEntrySearchFilter } from "@/lib/supabase/filters";
 
 const answerValueSchema = z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]);
 
@@ -39,9 +40,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     query = query.eq("status", status);
   }
   if (q) {
-    query = query.or(
-      `display_name.ilike.%${q}%,email.ilike.%${q}%,affiliation.ilike.%${q}%`
-    );
+    // 検索語はユーザー入力。カンマ・括弧・引用符がPostgRESTのフィルタ構文として解釈されないようにする(R-10)
+    query = query.or(buildEntrySearchFilter(q));
   }
 
   const { data, error } = await query;

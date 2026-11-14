@@ -141,7 +141,7 @@ Next.js アプリとして以下のような構成でデプロイできます。
 
 ## 9. データバックアップ方法
 
-現時点 (Phase 1) では、バックアップは Supabase 側の機能に依拠します。
+バックアップは Supabase 側の機能に依拠します。
 
 - Supabase ダッシュボードの Database > Backups (マネージドプランの場合)
 - 手動: `npx supabase db dump` で任意のタイミングでスキーマ・データをダンプ可能
@@ -153,32 +153,48 @@ JSON/CSV でエクスポートするアプリ内機能は、マスタープロ�
 
 ## 開発フェーズ
 
-マスタープロンプートの `# 53. 開発フェーズ` に基づき、以下の順で実装します。
+マスタープロンプトの `# 53. 開発フェーズ` に基づく実装状況です。
+「コードが存在する」ことと「実機で検証済み」は別です。詳細な要件・残課題は
+[CONTRIBUTING.md](./CONTRIBUTING.md)(要件定義書)と [codereview.md](./codereview.md) を参照してください。
 
-- [x] **Phase 1**: プロジェクト基盤 / 認証 / ユーザー(profiles) / 大会(tournaments) / 権限(tournament_members, RLS, 権限マトリクス)
-- [ ] Phase 2: 大会CMS / 公開ページ / エントリー
-- [ ] Phase 3: 参加者 / ペーパークイズ / 順位 / 組分け
-- [ ] Phase 4: Stage / Round / Group / ルールエンジン
-- [ ] Phase 5: ScoreEvent / 早押し得点操作 / リアルタイム同期
-- [ ] Phase 6: 監査ログ / Undo / 復旧 / バックアップ
-- [ ] Phase 7: カスタム表示エンジン / レイアウトエディタ / ブロック / データバインディング
-- [ ] Phase 8: OBS / 公開リアルタイム画面
-- [ ] Phase 9: テスト強化 / 負荷検証 / セキュリティ / UX改善
+- [x] **Phase 1**: プロジェクト基盤 / 認証 / ユーザー / 大会 / 権限(RLS・権限マトリクス)
+- [x] **Phase 2**: 大会CMS / 公開ページ / エントリー
+- [x] **Phase 3**: 参加者 / ペーパークイズ / 順位 / 自動組分け
+- [x] **Phase 4**: Stage / Round / ルールエンジン
+- [x] **Phase 5**: ScoreEvent / 早押し得点操作 / リアルタイム同期
+- [x] **Phase 6**: 監査ログ / Undo / エクスポート(表示レイアウトのバックアップ、全CSV対応は未了)
+- [~] **Phase 7**: カスタム表示エンジン(6種のブロック。JSON入出力・表示状態切替・追加ブロックは未実装)
+- [x] **Phase 8**: OBS Browser Source / 公開リアルタイム画面(スマホ向け順位表は未実装)
+- [ ] **Phase 9**: テスト強化 / 負荷検証 / セキュリティ / UX改善(進行中。下記)
 
-### Phase 1 で実装したもの
+### 直近の変更 (マイグレーション 0010)
 
-- `profiles` (User) と `tournament_members` (大会スタッフ) の分離設計。
-  `participants` (大会参加者) は将来のマイグレーションで別テーブルとして追加予定 —
-  同一概念として扱わない、という設計方針をスキーマレベルで担保しています。
-- 大会ごとのデータ分離を Row Level Security で実装 (`supabase/migrations/0001_init.sql`)。
-  スタッフでない大会のデータは一切参照できません。
-- ロール(`OWNER` / `ADMIN` / `QUESTION_MANAGER` / `SCORE_OPERATOR` / `GRADER` /
-  `STREAM_OPERATOR` / `VENUE_STAFF` / `VIEWER`)ごとの権限をデータテーブルとして定義
-  (`src/lib/permissions/index.ts`)。バックエンド API ルートでも必ず検証しています。
-- 大会のステータス遷移 (`DRAFT → REGISTRATION_OPEN → ... → PUBLISHED`) を
-  許可された遷移のみに制限 (`src/lib/tournament/status.ts`、単体テスト付き)。
-- 認証(サインアップ/ログイン/ログアウト)、大会作成・一覧・詳細ダッシュボード、
-  スタッフ招待・一覧 UI。
+- **ロール粒度のRLS**: `round_participants` / `score_events` の書き込みを、
+  `ROLE_ACTIONS` と対応するロールだけに限定(VIEWER 等はAPIを経由せず直接叩いても拒否)。
+  対応関係は `tests/unit/rls-permissions.test.ts` が検証します。
+- **得点操作のRPC化**: `record_score_event` / `undo_last_score_event` /
+  `advance_round_question`。SCORE_OPERATOR でも「次問題へ」が実行できます。
+- **再計算の排他制御**: `round_score_state.seq` による楽観的排他。複数オペレーターが
+  同時に操作しても、古い計算結果が新しい結果を上書きしません。
+- **score_events の追記専用化**: 変更できるのは Undo (`voided_at`) のみ。DELETE 不可。
+- CSV数式インジェクション対策、エントリー検索の特殊文字対応、セキュリティヘッダー追加。
+
+### 既知の制約
+
+- `round_participants` の得点キャッシュは、得点操作ロール(OWNER/ADMIN/SCORE_OPERATOR)が
+  RPC `apply_round_computation` で直接書けます(計算結果をクライアントが渡す設計のため)。
+  イベントログ(`score_events`)は追記専用で、次のイベント記録時にキャッシュは再計算されます。
+- 未実装の主な要件: スタッフの削除・ロール変更(R-06)、エントリーAPIのレート制限と重複防止(R-05)、
+  大会ステータスの訂正・中止(R-08)。
+
+### シミュレーション
+
+```bash
+npm run simulate
+```
+
+`.env.local` の接続先に対して、50人 → 32人 → 4組 → 16人 → 8人 → 決勝 の大会を自動実行します
+(毎回、新しい大会とアカウントを作成します)。
 
 ### 技術選定に関する変更点
 

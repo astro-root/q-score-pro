@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
+import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { recomputeRoundParticipants } from "@/lib/rules/apply-round-events";
+import { mapRpcError } from "@/lib/supabase/rpc-errors";
 
 const createSchema = z.object({
   participantId: z.string().uuid(),
@@ -38,6 +39,12 @@ export async function GET(request: Request, { params }: RouteParams) {
 // POST records one score event (master spec section 17: 正解/誤答/スルー/
 // 加点/減点/失格 - each a one-touch action from the buzzer operator
 // screen), then recomputes round_participants from the full event log.
+//
+// The insert goes through the record_score_event RPC (migration 0010): the
+// database itself checks the caller's role (OWNER/ADMIN/SCORE_OPERATOR),
+// that the participant belongs to this tournament, and stamps the current
+// question number and actor in the same transaction. can() below is only
+// there to return a clean 403 early - it is no longer the only gate.
 export async function POST(request: Request, { params }: RouteParams) {
   const { tournamentId, roundId } = await params;
   const role = await getTournamentRole(tournamentId);
@@ -55,32 +62,32 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const supabase = await createClient();
-  const user = await getCurrentUser();
 
-  const { data: round } = await supabase
-    .from("rounds")
-    .select("current_question_number")
-    .eq("id", roundId)
-    .eq("tournament_id", tournamentId)
-    .maybeSingle();
-  if (!round) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  const { data: event, error: insertError } = await supabase
-    .from("score_events")
-    .insert({
-      round_id: roundId,
-      participant_id: parsed.data.participantId,
-      event_type: parsed.data.type,
-      value: parsed.data.value ?? null,
-      question_number: round.current_question_number,
-      actor_id: user?.id ?? null,
-    })
-    .select()
-    .single();
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  const { data: event, error: recordError } = await supabase.rpc("record_score_event", {
+    p_tournament_id: tournamentId,
+    p_round_id: roundId,
+    p_participant_id: parsed.data.participantId,
+    p_event_type: parsed.data.type,
+    p_value: parsed.data.value ?? null,
+  });
+  if (recordError) {
+    const mapped = mapRpcError(recordError);
+    return NextResponse.json(mapped.body, { status: mapped.status });
+  }
 
   const result = await recomputeRoundParticipants(supabase, roundId);
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
+  if (result.error) {
+    // The event itself IS recorded (append-only log); only the derived
+    // scoreboard failed to refresh. Say so, so the operator doesn't re-enter it.
+    return NextResponse.json(
+      {
+        error: "recompute_failed",
+        message: `得点は記録されましたが、順位表の更新に失敗しました: ${result.error}`,
+        event,
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ event }, { status: 201 });
 }

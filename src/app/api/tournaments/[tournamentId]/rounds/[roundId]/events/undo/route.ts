@@ -4,6 +4,7 @@ import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { recomputeRoundParticipants } from "@/lib/rules/apply-round-events";
 import { logAudit } from "@/lib/audit/log";
+import { mapRpcError } from "@/lib/supabase/rpc-errors";
 
 type RouteParams = { params: Promise<{ tournamentId: string; roundId: string }> };
 
@@ -13,6 +14,10 @@ type RouteParams = { params: Promise<{ tournamentId: string; roundId: string }> 
 // that happened, not the last thing for one specific player) and
 // recomputes. Voiding, not deleting, keeps the audit trail intact (master
 // spec section 29/30).
+//
+// Picking and voiding the event happens inside the undo_last_score_event RPC
+// under a per-round lock, so two simultaneous undos void two different
+// events instead of voiding the same one twice.
 export async function POST(_request: Request, { params }: RouteParams) {
   const { tournamentId, roundId } = await params;
   const role = await getTournamentRole(tournamentId);
@@ -21,49 +26,43 @@ export async function POST(_request: Request, { params }: RouteParams) {
   }
 
   const supabase = await createClient();
-  const user = await getCurrentUser();
 
-  const { data: round } = await supabase
-    .from("rounds")
-    .select("id")
-    .eq("id", roundId)
-    .eq("tournament_id", tournamentId)
-    .maybeSingle();
-  if (!round) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  const { data: lastEvent, error: lastEventError } = await supabase
-    .from("score_events")
-    .select("id")
-    .eq("round_id", roundId)
-    .is("voided_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (lastEventError) return NextResponse.json({ error: lastEventError.message }, { status: 500 });
-  if (!lastEvent) {
+  const { data: voidedEventId, error: undoError } = await supabase.rpc("undo_last_score_event", {
+    p_tournament_id: tournamentId,
+    p_round_id: roundId,
+  });
+  if (undoError) {
+    const mapped = mapRpcError(undoError);
+    return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+  if (!voidedEventId) {
     return NextResponse.json(
       { error: "no_events", message: "取り消せるイベントがありません" },
       { status: 409 }
     );
   }
 
-  const { error: voidError } = await supabase
-    .from("score_events")
-    .update({ voided_at: new Date().toISOString(), voided_by: user?.id ?? null })
-    .eq("id", lastEvent.id);
-  if (voidError) return NextResponse.json({ error: voidError.message }, { status: 500 });
-
   const result = await recomputeRoundParticipants(supabase, roundId);
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
+  if (result.error) {
+    return NextResponse.json(
+      {
+        error: "recompute_failed",
+        message: `取り消しは記録されましたが、順位表の更新に失敗しました: ${result.error}`,
+        voidedEventId,
+      },
+      { status: 500 }
+    );
+  }
 
+  const user = await getCurrentUser();
   await logAudit(supabase, {
     tournamentId,
     actorId: user?.id ?? null,
     action: "score_event.undone",
     summary: "直前の得点イベントを取り消しました",
     roundId,
-    metadata: { voidedEventId: lastEvent.id },
+    metadata: { voidedEventId },
   });
 
-  return NextResponse.json({ voidedEventId: lastEvent.id });
+  return NextResponse.json({ voidedEventId });
 }

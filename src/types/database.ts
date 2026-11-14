@@ -640,6 +640,41 @@ export interface Database {
         Args: { p_tournament_id: string; p_roles: TournamentMemberRole[] };
         Returns: boolean;
       };
+      // --- 0010_role_scoped_rls_and_score_rpc.sql ---
+      can_operate_score: {
+        Args: { p_tournament_id: string };
+        Returns: boolean;
+      };
+      can_write_round_participants: {
+        Args: { p_tournament_id: string };
+        Returns: boolean;
+      };
+      record_score_event: {
+        Args: {
+          p_tournament_id: string;
+          p_round_id: string;
+          p_participant_id: string;
+          p_event_type: ScoreEventType;
+          p_value?: number | null;
+        };
+        Returns: Database["public"]["Tables"]["score_events"]["Row"];
+      };
+      undo_last_score_event: {
+        Args: { p_tournament_id: string; p_round_id: string };
+        Returns: string | null;
+      };
+      advance_round_question: {
+        Args: { p_tournament_id: string; p_round_id: string; p_direction: "NEXT" | "PREV" };
+        Returns: number;
+      };
+      get_round_score_seq: {
+        Args: { p_round_id: string };
+        Returns: number;
+      };
+      apply_round_computation: {
+        Args: { p_round_id: string; p_expected_seq: number; p_rows: unknown };
+        Returns: boolean;
+      };
     };
   };
 }

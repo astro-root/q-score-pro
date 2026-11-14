@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { requestJson } from "@/lib/api/request";
 import type { Database } from "@/types/database";
 
 type RoundParticipantRow = Database["public"]["Tables"]["round_participants"]["Row"] & {
@@ -38,6 +39,10 @@ export function OperatorScreen({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  // Failures must be visible: a silent failure during a live round is worse
+  // than a wrong click (R-02). Stays on screen until dismissed or until the
+  // next action succeeds, so it can't be missed while the operator is busy.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const supabaseRef = useRef(createClient());
 
   const refetchParticipants = useCallback(async () => {
@@ -83,38 +88,75 @@ export function OperatorScreen({
     };
   }, [roundId, refetchParticipants]);
 
+  const showFlash = useCallback((message: string) => {
+    setFlash(message);
+    window.setTimeout(() => setFlash(null), 1200);
+  }, []);
+
   const recordEvent = useCallback(
     async (participantId: string, type: string, value?: number) => {
       setBusy(true);
-      await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId, type, value }),
-      });
-      setBusy(false);
-      setFlash(`${type} を記録しました`);
-      window.setTimeout(() => setFlash(null), 1200);
+      try {
+        const result = await requestJson(
+          `/api/tournaments/${tournamentId}/rounds/${roundId}/events`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ participantId, type, value }),
+          }
+        );
+        if (!result.ok) {
+          setErrorMessage(`${type} を記録できませんでした: ${result.message}`);
+        } else {
+          setErrorMessage(null);
+          showFlash(`${type} を記録しました`);
+        }
+        // Don't depend on Realtime alone for the operator's own action.
+        await refetchParticipants();
+      } finally {
+        setBusy(false);
+      }
     },
-    [tournamentId, roundId]
+    [tournamentId, roundId, refetchParticipants, showFlash]
   );
 
   const undo = useCallback(async () => {
     setBusy(true);
-    await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}/events/undo`, {
-      method: "POST",
-    });
-    setBusy(false);
-    setFlash("直前の操作を取り消しました");
-    window.setTimeout(() => setFlash(null), 1200);
-  }, [tournamentId, roundId]);
+    try {
+      const result = await requestJson(
+        `/api/tournaments/${tournamentId}/rounds/${roundId}/events/undo`,
+        { method: "POST" }
+      );
+      if (!result.ok) {
+        setErrorMessage(`取り消せませんでした: ${result.message}`);
+      } else {
+        setErrorMessage(null);
+        showFlash("直前の操作を取り消しました");
+      }
+      await refetchParticipants();
+    } finally {
+      setBusy(false);
+    }
+  }, [tournamentId, roundId, refetchParticipants, showFlash]);
 
   const moveQuestion = useCallback(
     async (direction: "NEXT" | "PREV") => {
-      await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}/question`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction }),
-      });
+      const result = await requestJson<{ currentQuestionNumber: number }>(
+        `/api/tournaments/${tournamentId}/rounds/${roundId}/question`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ direction }),
+        }
+      );
+      if (!result.ok) {
+        setErrorMessage(`問題を移動できませんでした: ${result.message}`);
+        return;
+      }
+      setErrorMessage(null);
+      // Show the server's authoritative number immediately; Realtime then
+      // keeps other operators' screens in sync.
+      setQuestionNumber(result.data.currentQuestionNumber);
     },
     [tournamentId, roundId]
   );
@@ -133,7 +175,8 @@ export function OperatorScreen({
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        undo();
+        // A held-down key must not fire repeated undos / score events.
+        if (!e.repeat) undo();
         return;
       }
       if (e.key === "ArrowRight" || e.key.toLowerCase() === "n") {
@@ -150,7 +193,7 @@ export function OperatorScreen({
         if (target) setSelectedId(target.participant_id);
         return;
       }
-      if (!selectedId) return;
+      if (!selectedId || e.repeat) return;
       const key = e.key.toLowerCase();
       if (key === "c") recordEvent(selectedId, "CORRECT");
       else if (key === "x") recordEvent(selectedId, "WRONG");
@@ -197,6 +240,21 @@ export function OperatorScreen({
           </button>
         </div>
       </header>
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-4 border-b border-red-800 bg-red-950 px-6 py-3 text-sm text-red-200"
+        >
+          <span>{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="shrink-0 rounded border border-red-700 px-2 py-0.5 text-xs hover:bg-red-900"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
 
       {showShortcuts && (
         <div className="border-b border-slate-800 bg-slate-900 px-6 py-4">
