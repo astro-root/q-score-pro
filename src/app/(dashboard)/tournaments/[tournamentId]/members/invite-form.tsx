@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-const ROLE_OPTIONS = [
-  { value: "ADMIN", label: "大会管理者" },
-  { value: "QUESTION_MANAGER", label: "問題管理者" },
-  { value: "SCORE_OPERATOR", label: "得点オペレーター" },
-  { value: "GRADER", label: "採点担当" },
-  { value: "STREAM_OPERATOR", label: "配信担当" },
-  { value: "VENUE_STAFF", label: "会場スタッフ" },
-  { value: "VIEWER", label: "閲覧専用" },
-];
+import { ROLE_OPTIONS } from "./role-options";
 
 export function InviteForm({ tournamentId }: { tournamentId: string }) {
   const router = useRouter();

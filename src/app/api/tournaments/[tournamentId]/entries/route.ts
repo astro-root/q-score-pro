@@ -4,12 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { buildEntrySearchFilter } from "@/lib/supabase/filters";
+import { mapEntryInsertError } from "@/lib/entries/guard";
+import { clientIpFrom, createRateLimiter } from "@/lib/rate-limit";
+
+// 公開フォームの前段のレート制限 (R-05)。同じ会場・学校のWi-Fi(同一IP)から
+// 多人数が同時に申し込む場面を考慮して、1IP・1大会あたり10分に30件までとする。
+// DBトリガーによる大会単位の上限・重複防止が本当の防御線(0011参照)。
+const entryRateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 });
 
 const answerValueSchema = z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]);
 
 const submitSchema = z.object({
   displayName: z.string().min(1, "表示名を入力してください").max(200),
-  email: z.string().email("メールアドレスの形式が正しくありません"),
+  email: z.string().trim().email("メールアドレスの形式が正しくありません"),
   affiliation: z.string().max(200).optional(),
   answers: z.record(z.string(), answerValueSchema).optional(),
 });
@@ -59,6 +66,18 @@ export async function GET(request: Request, { params }: RouteParams) {
 // and because a clean 400 is a much better UX than a raw DB error.
 export async function POST(request: Request, { params }: RouteParams) {
   const { tournamentId } = await params;
+
+  const limit = entryRateLimiter.check(`${tournamentId}:${clientIpFrom(request.headers)}`);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message: "短時間に送信が集中しています。しばらく待ってからもう一度お試しください",
+      },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = submitSchema.safeParse(body);
   if (!parsed.success) {
@@ -107,16 +126,9 @@ export async function POST(request: Request, { params }: RouteParams) {
   });
 
   if (error) {
-    // RLS violation surfaces as a generic permissions error - translate it
-    // into something the entrant can understand (entries are closed).
-    const closed = error.message.toLowerCase().includes("row-level security");
-    return NextResponse.json(
-      {
-        error: closed ? "entries_closed" : error.message,
-        message: closed ? "現在この大会はエントリーを受け付けていません" : undefined,
-      },
-      { status: closed ? 409 : 500 }
-    );
+    // 重複(23505)・受付上限(QS429)・受付終了(RLS)を、入力者に分かる形で返す
+    const mapped = mapEntryInsertError(error);
+    return NextResponse.json(mapped.body, { status: mapped.status, headers: mapped.headers });
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

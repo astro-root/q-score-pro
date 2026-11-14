@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getTournamentRole } from "@/lib/auth/current-user";
+import { getCurrentUser, getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { InviteForm } from "./invite-form";
+import { MemberActions } from "./member-actions";
 
 export default async function MembersPage({
   params,
@@ -17,10 +18,11 @@ export default async function MembersPage({
     redirect(`/tournaments/${tournamentId}`);
   }
 
+  const currentUser = await getCurrentUser();
   const supabase = await createClient();
   const { data: members } = await supabase
     .from("tournament_members")
-    .select("id, role, created_at, profiles ( display_name, email )")
+    .select("id, user_id, role, created_at, profiles ( display_name, email )")
     .eq("tournament_id", tournamentId)
     .order("created_at", { ascending: true });
 
@@ -46,9 +48,19 @@ export default async function MembersPage({
                 </p>
                 <p className="text-xs text-slate-500">{profile?.email}</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {m.role}
-              </span>
+              {m.role === "OWNER" || m.user_id === currentUser?.id ? (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  {m.role}
+                  {m.user_id === currentUser?.id ? "(自分)" : ""}
+                </span>
+              ) : (
+                <MemberActions
+                  tournamentId={tournamentId}
+                  memberId={m.id}
+                  currentRole={m.role}
+                  displayName={profile?.display_name ?? profile?.email ?? "スタッフ"}
+                />
+              )}
             </li>
           );
         })}
