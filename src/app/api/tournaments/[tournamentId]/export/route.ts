@@ -9,8 +9,7 @@ type RouteParams = { params: Promise<{ tournamentId: string }> };
 // Full machine-readable backup of everything the master spec section 31
 // asks for: tournament info, staff, entries, participants, rounds, groups,
 // scores, score events, rankings/advancement (derived, included as-is on
-// round_participants), audit logs. Display layouts are Phase 7 and will be
-// added to this bundle once they exist.
+// round_participants), audit logs, and display layouts (Phase 7, schemaVersion 2).
 //
 // This is a straightforward "dump everything visible to an admin" export,
 // not an incremental/streaming one - acceptable at the "数十〜数百人規模"
@@ -38,6 +37,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     scheduleItems,
     scoreEvents,
     auditLogs,
+    displayLayouts,
   ] = await Promise.all([
     supabase.from("tournaments").select("*").eq("id", tournamentId).single(),
     supabase
@@ -60,6 +60,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       .select("*, rounds!inner ( tournament_id )")
       .eq("rounds.tournament_id", tournamentId),
     supabase.from("audit_logs").select("*").eq("tournament_id", tournamentId),
+    supabase.from("display_layouts").select("*").eq("tournament_id", tournamentId),
   ]);
 
   const firstError = [
@@ -75,6 +76,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     scheduleItems,
     scoreEvents,
     auditLogs,
+    displayLayouts,
   ].find((r) => r.error);
   if (firstError?.error) {
     return NextResponse.json({ error: firstError.error.message }, { status: 500 });
@@ -82,7 +84,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const bundle = {
     exportedAt: new Date().toISOString(),
-    schemaVersion: 1,
+    schemaVersion: 2,
     tournament: tournament.data,
     staff: members.data,
     stages: stages.data,
@@ -95,6 +97,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     scheduleItems: scheduleItems.data,
     scoreEvents: scoreEvents.data,
     auditLogs: auditLogs.data,
+    displayLayouts: displayLayouts.data,
   };
 
   return new NextResponse(JSON.stringify(bundle, null, 2), {

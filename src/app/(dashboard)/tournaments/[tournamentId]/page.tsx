@@ -4,15 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { StatusControl } from "./status-control";
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "下書き",
-  REGISTRATION_OPEN: "エントリー受付中",
-  REGISTRATION_CLOSED: "エントリー締切",
-  RUNNING: "開催中",
-  FINISHED: "終了",
-  PUBLISHED: "結果公開",
-};
+import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
 
 export default async function TournamentDashboardPage({
   params,
@@ -40,7 +32,7 @@ export default async function TournamentDashboardPage({
           <p className="text-sm text-slate-500">/{tournament.slug}</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-          {STATUS_LABEL[tournament.status] ?? tournament.status}
+          {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
         </span>
       </div>
 

@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "下書き",
-  REGISTRATION_OPEN: "エントリー受付中",
-  REGISTRATION_CLOSED: "エントリー締切",
-  RUNNING: "開催中",
-  FINISHED: "終了",
-  PUBLISHED: "結果公開",
-};
+import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
+import type { TournamentStatus } from "@/types/database";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -45,7 +38,7 @@ export default async function DashboardPage() {
               id: string;
               slug: string;
               name: string;
-              status: string;
+              status: TournamentStatus;
               updated_at: string;
             } | null;
             if (!t) return null;
@@ -61,7 +54,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                      {STATUS_LABEL[t.status] ?? t.status}
+                      {TOURNAMENT_STATUS_LABEL[t.status] ?? t.status}
                     </span>
                     <span className="text-xs text-slate-400">{m.role}</span>
                   </div>

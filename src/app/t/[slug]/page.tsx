@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-
-const STATUS_LABEL: Record<string, string> = {
-  REGISTRATION_OPEN: "エントリー受付中",
-  REGISTRATION_CLOSED: "エントリー締切",
-  RUNNING: "開催中",
-  FINISHED: "終了",
-  PUBLISHED: "結果公開",
-};
+import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
 
 export default async function PublicTournamentPage({
   params,
@@ -54,6 +47,15 @@ export default async function PublicTournamentPage({
       )}
 
       <div className="mx-auto max-w-3xl px-4 py-10">
+        {tournament.status === "CANCELLED" && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+          >
+            この大会は中止されました。
+          </div>
+        )}
+
         <div className="mb-8 flex items-start gap-4">
           {tournament.logo_url && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -65,7 +67,7 @@ export default async function PublicTournamentPage({
           )}
           <div>
             <span className="mb-1 inline-block rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-medium text-indigo-700">
-              {STATUS_LABEL[tournament.status] ?? tournament.status}
+              {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
             </span>
             <h1 className="text-3xl font-bold text-slate-900">{tournament.name}</h1>
             {tournament.organizer_name && (

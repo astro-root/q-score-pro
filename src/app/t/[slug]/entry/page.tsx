@@ -36,7 +36,9 @@ export default async function PublicEntryPage({
           </div>
         ) : (
           <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-            現在この大会はエントリーを受け付けていません。
+            {tournament.status === "CANCELLED"
+              ? "この大会は中止されました。"
+              : "現在この大会はエントリーを受け付けていません。"}
           </div>
         )}
       </div>

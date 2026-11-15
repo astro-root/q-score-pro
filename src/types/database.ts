@@ -16,7 +16,8 @@ export type TournamentStatus =
   | "REGISTRATION_CLOSED"
   | "RUNNING"
   | "FINISHED"
-  | "PUBLISHED";
+  | "PUBLISHED"
+  | "CANCELLED";
 
 export type TournamentMemberRole =
   | "OWNER"
@@ -666,6 +667,11 @@ export interface Database {
       advance_round_question: {
         Args: { p_tournament_id: string; p_round_id: string; p_direction: "NEXT" | "PREV" };
         Returns: number;
+      };
+      // --- 0013_tournament_status_workflow.sql ---
+      change_tournament_status: {
+        Args: { p_tournament_id: string; p_status: TournamentStatus; p_reason?: string | null };
+        Returns: Database["public"]["Tables"]["tournaments"]["Row"];
       };
       get_round_score_seq: {
         Args: { p_round_id: string };
