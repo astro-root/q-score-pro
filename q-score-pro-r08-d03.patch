@@ -1,0 +1,1236 @@
+diff --git a/README.md b/README.md
+index efa4900..48a9238 100644
+--- a/README.md
++++ b/README.md
+@@ -190,13 +190,28 @@ JSON/CSV でエクスポートするアプリ内機能は、マスタープロ
+   OWNER を新たに付与することもできません(DBトリガーでも強制)。変更は監査ログに残ります。
+ - DB回帰テスト: `tests/db/0011_entry_guard_and_member_protection.sql`(実行方法はファイル冒頭)。
+ 
++### 直近の変更 (マイグレーション 0012・0013)
++
++- **公開後の訂正 (R-08)**: 結果公開(PUBLISHED)の大会を、理由つきで開催中(RUNNING)に戻せます。
++  公開中の結果は一旦非公開になり、直したあとに再度「結果公開」へ進められます。
++- **大会の中止 (R-08)**: ステータスに `CANCELLED`(中止)を追加。受付中・受付締切・開催中から、理由つきで中止できます。
++  下書きは公開されたことがないので、中止ではなく削除してください。中止は元に戻せません。
++  中止された大会の公開ページは残り、「この大会は中止されました」と表示します。
++- **訂正・中止は理由が必須で、監査ログに必ず残ります**。遷移の検証と監査ログの記録は DB トリガーで行うため、
++  API を経由しない更新でも同じ検証が効き、「状態は変わったのに監査ログが無い」状態は起きません。
++  通常のステータス変更も、監査ログに記録されるようになりました。
++- 遷移表は `src/lib/tournament/status.ts`(アプリ)と 0013(DB)の2か所にあります。
++  `tests/unit/tournament-status.test.ts` が両者の一致を検証します。
++- **バックアップ (D-03)**: `/export` に表示レイアウト(`displayLayouts`)を追加しました(`schemaVersion: 2`)。
++- DB回帰テスト: `tests/db/0013_tournament_status_workflow.sql`。
++
+ ### 既知の制約
+ 
+ - `round_participants` の得点キャッシュは、得点操作ロール(OWNER/ADMIN/SCORE_OPERATOR)が
+   RPC `apply_round_computation` で直接書けます(計算結果をクライアントが渡す設計のため)。
+   イベントログ(`score_events`)は追記専用で、次のイベント記録時にキャッシュは再計算されます。
+-- 未実装の主な要件: 大会ステータスの訂正・中止(R-08)、`database.ts` の `supabase gen types` への置換(D-04)、
+-  `/export` への表示レイアウトの追加(D-03)。
++- 未実装の主な要件: `database.ts` の `supabase gen types` への置換(D-04。本番プロジェクトへの接続が必要)、
++  表示エンジンの拡張(D-05〜D-07)。
+ - エントリーの流量制限(IP単位)はメモリ内のベストエフォートです(サーバーレスでは複数インスタンスに分かれる)。
+   DB を直接叩く経路に対しては、大会単位の上限(1分あたり60件)がマイグレーション 0011 のトリガーで効きます。
+ 
+diff --git a/src/app/(dashboard)/dashboard/page.tsx b/src/app/(dashboard)/dashboard/page.tsx
+index 7c92ae7..8fff75e 100644
+--- a/src/app/(dashboard)/dashboard/page.tsx
++++ b/src/app/(dashboard)/dashboard/page.tsx
+@@ -1,14 +1,7 @@
+ import Link from "next/link";
+ import { createClient } from "@/lib/supabase/server";
+-
+-const STATUS_LABEL: Record<string, string> = {
+-  DRAFT: "下書き",
+-  REGISTRATION_OPEN: "エントリー受付中",
+-  REGISTRATION_CLOSED: "エントリー締切",
+-  RUNNING: "開催中",
+-  FINISHED: "終了",
+-  PUBLISHED: "結果公開",
+-};
++import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
++import type { TournamentStatus } from "@/types/database";
+ 
+ export default async function DashboardPage() {
+   const supabase = await createClient();
+@@ -45,7 +38,7 @@ export default async function DashboardPage() {
+               id: string;
+               slug: string;
+               name: string;
+-              status: string;
++              status: TournamentStatus;
+               updated_at: string;
+             } | null;
+             if (!t) return null;
+@@ -61,7 +54,7 @@ export default async function DashboardPage() {
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+-                      {STATUS_LABEL[t.status] ?? t.status}
++                      {TOURNAMENT_STATUS_LABEL[t.status] ?? t.status}
+                     </span>
+                     <span className="text-xs text-slate-400">{m.role}</span>
+                   </div>
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/page.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/page.tsx
+index d9e1667..d7193bb 100644
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/page.tsx
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/page.tsx
+@@ -4,15 +4,7 @@ import { createClient } from "@/lib/supabase/server";
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+ import { StatusControl } from "./status-control";
+-
+-const STATUS_LABEL: Record<string, string> = {
+-  DRAFT: "下書き",
+-  REGISTRATION_OPEN: "エントリー受付中",
+-  REGISTRATION_CLOSED: "エントリー締切",
+-  RUNNING: "開催中",
+-  FINISHED: "終了",
+-  PUBLISHED: "結果公開",
+-};
++import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
+ 
+ export default async function TournamentDashboardPage({
+   params,
+@@ -40,7 +32,7 @@ export default async function TournamentDashboardPage({
+           <p className="text-sm text-slate-500">/{tournament.slug}</p>
+         </div>
+         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+-          {STATUS_LABEL[tournament.status] ?? tournament.status}
++          {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
+         </span>
+       </div>
+ 
+diff --git a/src/app/(dashboard)/tournaments/[tournamentId]/status-control.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/status-control.tsx
+index 9331d2b..885b165 100644
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/status-control.tsx
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/status-control.tsx
+@@ -1,72 +1,166 @@
+ "use client";
+ 
+-import { useState, useTransition } from "react";
++import { useState } from "react";
+ import { useRouter } from "next/navigation";
++import { requestJson } from "@/lib/api/request";
++import {
++  NEXT_STATUS,
++  STATUS_REASON_MAX_LENGTH,
++  TOURNAMENT_STATUS_LABEL,
++  canTransition,
++} from "@/lib/tournament/status";
++import type { TournamentStatus } from "@/types/database";
+ 
+-const NEXT_STATUS: Record<string, string | null> = {
+-  DRAFT: "REGISTRATION_OPEN",
+-  REGISTRATION_OPEN: "REGISTRATION_CLOSED",
+-  REGISTRATION_CLOSED: "RUNNING",
+-  RUNNING: "FINISHED",
+-  FINISHED: "PUBLISHED",
+-  PUBLISHED: null,
+-};
+-
+-const STATUS_LABEL: Record<string, string> = {
+-  DRAFT: "下書き",
+-  REGISTRATION_OPEN: "エントリー受付中",
+-  REGISTRATION_CLOSED: "エントリー締切",
+-  RUNNING: "開催中",
+-  FINISHED: "終了",
+-  PUBLISHED: "結果公開",
+-};
++type ReasonAction = "correct" | "cancel";
+ 
+ export function StatusControl({
+   tournamentId,
+   currentStatus,
+ }: {
+   tournamentId: string;
+-  currentStatus: string;
++  currentStatus: TournamentStatus;
+ }) {
+   const router = useRouter();
+-  const [pending, startTransition] = useTransition();
++  const [pending, setPending] = useState(false);
+   const [error, setError] = useState<string | null>(null);
++  const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null);
++  const [reason, setReason] = useState("");
+ 
+   const next = NEXT_STATUS[currentStatus];
++  // 公開後の訂正(結果公開 → 開催中に戻す)と、中止
++  const canCorrect = canTransition(currentStatus, "RUNNING") && currentStatus === "PUBLISHED";
++  const canCancel = canTransition(currentStatus, "CANCELLED");
+ 
+-  function advance() {
+-    if (!next) return;
++  async function change(status: TournamentStatus, withReason?: string) {
++    setPending(true);
+     setError(null);
+-    startTransition(async () => {
+-      const res = await fetch(`/api/tournaments/${tournamentId}`, {
+-        method: "PATCH",
+-        headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({ status: next }),
+-      });
+-      if (!res.ok) {
+-        const body = await res.json().catch(() => ({}));
+-        setError(body.message ?? "ステータスの更新に失敗しました");
+-        return;
+-      }
+-      router.refresh();
++    const r = await requestJson(`/api/tournaments/${tournamentId}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify(withReason ? { status, reason: withReason } : { status }),
+     });
++    setPending(false);
++    if (!r.ok) {
++      setError(r.message);
++      return false;
++    }
++    setReasonAction(null);
++    setReason("");
++    router.refresh();
++    return true;
++  }
++
++  async function submitReason() {
++    if (!reasonAction) return;
++    const trimmed = reason.trim();
++    if (!trimmed) {
++      setError("理由を入力してください");
++      return;
++    }
++    if (
++      reasonAction === "cancel" &&
++      !window.confirm("大会を中止します。この操作は元に戻せません。よろしいですか?")
++    ) {
++      return;
++    }
++    await change(reasonAction === "cancel" ? "CANCELLED" : "RUNNING", trimmed);
+   }
+ 
+   return (
+     <div>
+-      <p className="mb-3 text-sm text-slate-600">現在: {STATUS_LABEL[currentStatus]}</p>
+-      {next ? (
++      <p className="mb-3 text-sm text-slate-600">
++        現在: {TOURNAMENT_STATUS_LABEL[currentStatus]}
++      </p>
++
++      {currentStatus === "CANCELLED" && (
++        <p className="text-sm text-slate-500">この大会は中止されました。状態は変更できません。</p>
++      )}
++
++      {next && (
+         <button
+-          onClick={advance}
++          onClick={() => change(next)}
+           disabled={pending}
+           className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+         >
+-          {pending ? "更新中..." : `${STATUS_LABEL[next]} に進める`}
++          {pending && !reasonAction ? "更新中..." : `${TOURNAMENT_STATUS_LABEL[next]} に進める`}
+         </button>
+-      ) : (
+-        <p className="text-sm text-slate-400">これ以上進める状態はありません</p>
+       )}
+-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
++
++      {(canCorrect || canCancel) && !reasonAction && (
++        <div className="mt-3 flex flex-wrap gap-2">
++          {canCorrect && (
++            <button
++              onClick={() => {
++                setError(null);
++                setReasonAction("correct");
++              }}
++              disabled={pending}
++              className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-60"
++            >
++              訂正のため開催中に戻す
++            </button>
++          )}
++          {canCancel && (
++            <button
++              onClick={() => {
++                setError(null);
++                setReasonAction("cancel");
++              }}
++              disabled={pending}
++              className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
++            >
++              大会を中止する
++            </button>
++          )}
++        </div>
++      )}
++
++      {reasonAction && (
++        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
++          <label className="mb-1 block text-xs font-medium text-slate-700">
++            {reasonAction === "cancel"
++              ? "中止の理由(監査ログに記録されます)"
++              : "訂正の理由(監査ログに記録されます。公開中の結果は一旦非公開になります)"}
++          </label>
++          <textarea
++            value={reason}
++            onChange={(e) => setReason(e.target.value)}
++            maxLength={STATUS_REASON_MAX_LENGTH}
++            rows={2}
++            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
++          />
++          <div className="mt-2 flex gap-2">
++            <button
++              onClick={submitReason}
++              disabled={pending}
++              className={`rounded-md px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60 ${
++                reasonAction === "cancel"
++                  ? "bg-red-600 hover:bg-red-500"
++                  : "bg-amber-600 hover:bg-amber-500"
++              }`}
++            >
++              {pending ? "更新中..." : reasonAction === "cancel" ? "中止する" : "開催中に戻す"}
++            </button>
++            <button
++              onClick={() => {
++                setReasonAction(null);
++                setReason("");
++                setError(null);
++              }}
++              disabled={pending}
++              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-white disabled:opacity-60"
++            >
++              キャンセル
++            </button>
++          </div>
++        </div>
++      )}
++
++      {error && (
++        <p role="alert" className="mt-2 text-sm text-red-600">
++          {error}
++        </p>
++      )}
+     </div>
+   );
+ }
+diff --git a/src/app/api/tournaments/[tournamentId]/export/route.ts b/src/app/api/tournaments/[tournamentId]/export/route.ts
+index de0d38e..5f8ecf4 100644
+--- a/src/app/api/tournaments/[tournamentId]/export/route.ts
++++ b/src/app/api/tournaments/[tournamentId]/export/route.ts
+@@ -9,8 +9,7 @@ type RouteParams = { params: Promise<{ tournamentId: string }> };
+ // Full machine-readable backup of everything the master spec section 31
+ // asks for: tournament info, staff, entries, participants, rounds, groups,
+ // scores, score events, rankings/advancement (derived, included as-is on
+-// round_participants), audit logs. Display layouts are Phase 7 and will be
+-// added to this bundle once they exist.
++// round_participants), audit logs, and display layouts (Phase 7, schemaVersion 2).
+ //
+ // This is a straightforward "dump everything visible to an admin" export,
+ // not an incremental/streaming one - acceptable at the "数十〜数百人規模"
+@@ -38,6 +37,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
+     scheduleItems,
+     scoreEvents,
+     auditLogs,
++    displayLayouts,
+   ] = await Promise.all([
+     supabase.from("tournaments").select("*").eq("id", tournamentId).single(),
+     supabase
+@@ -60,6 +60,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
+       .select("*, rounds!inner ( tournament_id )")
+       .eq("rounds.tournament_id", tournamentId),
+     supabase.from("audit_logs").select("*").eq("tournament_id", tournamentId),
++    supabase.from("display_layouts").select("*").eq("tournament_id", tournamentId),
+   ]);
+ 
+   const firstError = [
+@@ -75,6 +76,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
+     scheduleItems,
+     scoreEvents,
+     auditLogs,
++    displayLayouts,
+   ].find((r) => r.error);
+   if (firstError?.error) {
+     return NextResponse.json({ error: firstError.error.message }, { status: 500 });
+@@ -82,7 +84,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
+ 
+   const bundle = {
+     exportedAt: new Date().toISOString(),
+-    schemaVersion: 1,
++    schemaVersion: 2,
+     tournament: tournament.data,
+     staff: members.data,
+     stages: stages.data,
+@@ -95,6 +97,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
+     scheduleItems: scheduleItems.data,
+     scoreEvents: scoreEvents.data,
+     auditLogs: auditLogs.data,
++    displayLayouts: displayLayouts.data,
+   };
+ 
+   return new NextResponse(JSON.stringify(bundle, null, 2), {
+diff --git a/src/app/api/tournaments/[tournamentId]/route.ts b/src/app/api/tournaments/[tournamentId]/route.ts
+index c2757bb..4944cf4 100644
+--- a/src/app/api/tournaments/[tournamentId]/route.ts
++++ b/src/app/api/tournaments/[tournamentId]/route.ts
+@@ -3,7 +3,12 @@ import { z } from "zod";
+ import { createClient } from "@/lib/supabase/server";
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+-import { canTransition } from "@/lib/tournament/status";
++import {
++  STATUS_REASON_MAX_LENGTH,
++  canTransition,
++  mapStatusChangeError,
++  transitionRequiresReason,
++} from "@/lib/tournament/status";
+ 
+ const updateTournamentSchema = z.object({
+   name: z.string().min(1).max(200).optional(),
+@@ -16,8 +21,11 @@ const updateTournamentSchema = z.object({
+       "RUNNING",
+       "FINISHED",
+       "PUBLISHED",
++      "CANCELLED",
+     ])
+     .optional(),
++  // 公開後の訂正(PUBLISHED→RUNNING)と中止(→CANCELLED)で必須。監査ログに残る
++  reason: z.string().trim().max(STATUS_REASON_MAX_LENGTH).optional(),
+ });
+ 
+ type RouteParams = { params: Promise<{ tournamentId: string }> };
+@@ -56,8 +64,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
+   }
+ 
+   const supabase = await createClient();
++  const { status: nextStatus, reason, ...fields } = parsed.data;
+ 
+-  if (parsed.data.status) {
++  // ステータスの変更は RPC 経由(DBトリガーが遷移の検証と監査ログの記録を行う)。
++  // ここでは先に同じ検証をして、画面に分かりやすいメッセージを返す。
++  if (nextStatus) {
+     if (!can(role, "tournament:publish")) {
+       return NextResponse.json({ error: "forbidden" }, { status: 403 });
+     }
+@@ -70,24 +81,45 @@ export async function PATCH(request: Request, { params }: RouteParams) {
+ 
+     if (!current) return NextResponse.json({ error: "not_found" }, { status: 404 });
+ 
+-    if (!canTransition(current.status, parsed.data.status)) {
++    if (!canTransition(current.status, nextStatus)) {
+       return NextResponse.json(
+         {
+           error: "invalid_status_transition",
+-          message: `${current.status} から ${parsed.data.status} への遷移はできません`,
++          message: `${current.status} から ${nextStatus} への遷移はできません`,
+         },
+         { status: 409 }
+       );
+     }
++
++    if (transitionRequiresReason(current.status, nextStatus) && !reason) {
++      return NextResponse.json(
++        { error: "status_reason_required", message: "訂正・中止には理由の入力が必要です" },
++        { status: 400 }
++      );
++    }
++
++    const { error: statusError } = await supabase.rpc("change_tournament_status", {
++      p_tournament_id: tournamentId,
++      p_status: nextStatus,
++      p_reason: reason ?? null,
++    });
++    if (statusError) {
++      const mapped = mapStatusChangeError(statusError);
++      return NextResponse.json(mapped.body, { status: mapped.status });
++    }
++  }
++
++  // 名前・概要など、ステータス以外の項目
++  if (Object.keys(fields).length > 0) {
++    const { error } = await supabase.from("tournaments").update(fields).eq("id", tournamentId);
++    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+   }
+ 
+   const { data, error } = await supabase
+     .from("tournaments")
+-    .update(parsed.data)
+-    .eq("id", tournamentId)
+     .select()
++    .eq("id", tournamentId)
+     .single();
+-
+   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+ 
+   return NextResponse.json({ tournament: data });
+diff --git a/src/app/t/[slug]/entry/page.tsx b/src/app/t/[slug]/entry/page.tsx
+index fc61225..5fc5b94 100644
+--- a/src/app/t/[slug]/entry/page.tsx
++++ b/src/app/t/[slug]/entry/page.tsx
+@@ -36,7 +36,9 @@ export default async function PublicEntryPage({
+           </div>
+         ) : (
+           <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+-            現在この大会はエントリーを受け付けていません。
++            {tournament.status === "CANCELLED"
++              ? "この大会は中止されました。"
++              : "現在この大会はエントリーを受け付けていません。"}
+           </div>
+         )}
+       </div>
+diff --git a/src/app/t/[slug]/page.tsx b/src/app/t/[slug]/page.tsx
+index 4188a5c..ea7f3a2 100644
+--- a/src/app/t/[slug]/page.tsx
++++ b/src/app/t/[slug]/page.tsx
+@@ -1,14 +1,7 @@
+ import Link from "next/link";
+ import { notFound } from "next/navigation";
+ import { createClient } from "@/lib/supabase/server";
+-
+-const STATUS_LABEL: Record<string, string> = {
+-  REGISTRATION_OPEN: "エントリー受付中",
+-  REGISTRATION_CLOSED: "エントリー締切",
+-  RUNNING: "開催中",
+-  FINISHED: "終了",
+-  PUBLISHED: "結果公開",
+-};
++import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
+ 
+ export default async function PublicTournamentPage({
+   params,
+@@ -54,6 +47,15 @@ export default async function PublicTournamentPage({
+       )}
+ 
+       <div className="mx-auto max-w-3xl px-4 py-10">
++        {tournament.status === "CANCELLED" && (
++          <div
++            role="status"
++            className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
++          >
++            この大会は中止されました。
++          </div>
++        )}
++
+         <div className="mb-8 flex items-start gap-4">
+           {tournament.logo_url && (
+             // eslint-disable-next-line @next/next/no-img-element
+@@ -65,7 +67,7 @@ export default async function PublicTournamentPage({
+           )}
+           <div>
+             <span className="mb-1 inline-block rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-medium text-indigo-700">
+-              {STATUS_LABEL[tournament.status] ?? tournament.status}
++              {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
+             </span>
+             <h1 className="text-3xl font-bold text-slate-900">{tournament.name}</h1>
+             {tournament.organizer_name && (
+diff --git a/src/lib/tournament/status.ts b/src/lib/tournament/status.ts
+index c53eae1..fd14fa9 100644
+--- a/src/lib/tournament/status.ts
++++ b/src/lib/tournament/status.ts
+@@ -4,16 +4,85 @@ import type { TournamentStatus } from "@/types/database";
+  * Allowed status transitions (master spec section 28: 不正な状態遷移を防止する).
+  * Kept as a lookup table, not scattered if/else, so it's easy to test and to
+  * extend when Phase 4+ introduces round-linked auto-transitions.
++ *
++ * DB側にも同じ遷移表がある (supabase/migrations/0013 の
++ * tournament_status_transition_allowed)。tests/unit/tournament-status.test.ts が
++ * 両者の一致を検証するので、片方だけ変えないこと。
++ *
++ * - PUBLISHED → RUNNING は「公開後の訂正」。理由が必須で、監査ログに残る。
++ * - CANCELLED(中止)にできるのは、既に公開されていた状態(受付中〜開催中)だけ。
++ *   下書きは公開されたことがないので、中止ではなく削除する。理由が必須。
++ * - CANCELLED は終端状態(元に戻せない)。
+  */
+ export const ALLOWED_TRANSITIONS: Record<TournamentStatus, TournamentStatus[]> = {
+   DRAFT: ["REGISTRATION_OPEN"],
+-  REGISTRATION_OPEN: ["REGISTRATION_CLOSED", "DRAFT"],
+-  REGISTRATION_CLOSED: ["RUNNING", "REGISTRATION_OPEN"],
+-  RUNNING: ["FINISHED"],
++  REGISTRATION_OPEN: ["REGISTRATION_CLOSED", "DRAFT", "CANCELLED"],
++  REGISTRATION_CLOSED: ["RUNNING", "REGISTRATION_OPEN", "CANCELLED"],
++  RUNNING: ["FINISHED", "CANCELLED"],
+   FINISHED: ["PUBLISHED"],
+-  PUBLISHED: [],
++  PUBLISHED: ["RUNNING"],
++  CANCELLED: [],
+ };
+ 
+ export function canTransition(from: TournamentStatus, to: TournamentStatus): boolean {
+   return ALLOWED_TRANSITIONS[from].includes(to);
+ }
++
++/** 訂正(公開結果の取り下げ)と中止は、理由の記録が必須 */
++export function transitionRequiresReason(from: TournamentStatus, to: TournamentStatus): boolean {
++  return from === "PUBLISHED" || to === "CANCELLED";
++}
++
++/** 通常の「次へ進める」遷移(画面の主ボタン)。訂正・中止・巻き戻しは含まない */
++export const NEXT_STATUS: Record<TournamentStatus, TournamentStatus | null> = {
++  DRAFT: "REGISTRATION_OPEN",
++  REGISTRATION_OPEN: "REGISTRATION_CLOSED",
++  REGISTRATION_CLOSED: "RUNNING",
++  RUNNING: "FINISHED",
++  FINISHED: "PUBLISHED",
++  PUBLISHED: null,
++  CANCELLED: null,
++};
++
++export const TOURNAMENT_STATUS_LABEL: Record<TournamentStatus, string> = {
++  DRAFT: "下書き",
++  REGISTRATION_OPEN: "エントリー受付中",
++  REGISTRATION_CLOSED: "エントリー締切",
++  RUNNING: "開催中",
++  FINISHED: "終了",
++  PUBLISHED: "結果公開",
++  CANCELLED: "中止",
++};
++
++export const STATUS_REASON_MAX_LENGTH = 500;
++
++/**
++ * change_tournament_status RPC / ステータストリガーのエラーを HTTP に対応づける。
++ *   22023 invalid_status_transition : 許可されていない遷移 (409)
++ *   22023 status_reason_required    : 訂正・中止に理由がない (400)
++ *   P0002 tournament_not_found      : 大会がない、または更新権限がない (404)
++ */
++export function mapStatusChangeError(error: { message: string; code?: string | null }): {
++  status: number;
++  body: { error: string; message: string };
++} {
++  if (error.message.includes("invalid_status_transition")) {
++    return {
++      status: 409,
++      body: { error: "invalid_status_transition", message: "その状態への変更はできません" },
++    };
++  }
++  if (error.message.includes("status_reason_required")) {
++    return {
++      status: 400,
++      body: { error: "status_reason_required", message: "訂正・中止には理由の入力が必要です" },
++    };
++  }
++  if (error.code === "P0002") {
++    return {
++      status: 404,
++      body: { error: "not_found", message: "大会が見つからないか、変更する権限がありません" },
++    };
++  }
++  return { status: 500, body: { error: "internal_error", message: error.message } };
++}
+diff --git a/src/types/database.ts b/src/types/database.ts
+index 1c09149..8dec8c3 100644
+--- a/src/types/database.ts
++++ b/src/types/database.ts
+@@ -16,7 +16,8 @@ export type TournamentStatus =
+   | "REGISTRATION_CLOSED"
+   | "RUNNING"
+   | "FINISHED"
+-  | "PUBLISHED";
++  | "PUBLISHED"
++  | "CANCELLED";
+ 
+ export type TournamentMemberRole =
+   | "OWNER"
+@@ -667,6 +668,11 @@ export interface Database {
+         Args: { p_tournament_id: string; p_round_id: string; p_direction: "NEXT" | "PREV" };
+         Returns: number;
+       };
++      // --- 0013_tournament_status_workflow.sql ---
++      change_tournament_status: {
++        Args: { p_tournament_id: string; p_status: TournamentStatus; p_reason?: string | null };
++        Returns: Database["public"]["Tables"]["tournaments"]["Row"];
++      };
+       get_round_score_seq: {
+         Args: { p_round_id: string };
+         Returns: number;
+diff --git a/supabase/migrations/0012_tournament_status_cancelled.sql b/supabase/migrations/0012_tournament_status_cancelled.sql
+new file mode 100644
+index 0000000..698a440
+--- /dev/null
++++ b/supabase/migrations/0012_tournament_status_cancelled.sql
+@@ -0,0 +1,9 @@
++-- =============================================================================
++-- Q-Score Pro : 0012
++-- 大会ステータスに CANCELLED(中止)を追加する (R-08 / Issue 9)
++--
++-- enum への値の追加は、同じトランザクション内ではその値を使えない(Postgresの制約)。
++-- そのため値の追加だけをこのファイルに分け、CANCELLED を参照するポリシー・
++-- トリガー・RPC は 0013 に置く。
++-- =============================================================================
++alter type public.tournament_status add value if not exists 'CANCELLED';
+diff --git a/supabase/migrations/0013_tournament_status_workflow.sql b/supabase/migrations/0013_tournament_status_workflow.sql
+new file mode 100644
+index 0000000..7fa2cb4
+--- /dev/null
++++ b/supabase/migrations/0013_tournament_status_workflow.sql
+@@ -0,0 +1,201 @@
++-- =============================================================================
++-- Q-Score Pro : 0013
++-- 大会ステータスの遷移をDBで強制し、訂正・中止を監査ログ必須にする
++--
++-- 対応する要件 (CONTRIBUTING.md 8.3章 / codereview.md):
++--   R-08 (Issue 9) 公開後の訂正(PUBLISHED→RUNNING、監査ログ必須)と CANCELLED
++--
++-- 設計方針:
++-- - 遷移表は src/lib/tournament/status.ts の ALLOWED_TRANSITIONS と同じ内容を
++--   このファイルの tournament_status_transition_allowed() に持つ。対応関係は
++--   tests/unit/tournament-status.test.ts がこのファイルを解析して検証する。
++--   片方を変えたら、もう片方も必ず同時に直すこと。
++-- - 遷移の検証と監査ログの記録は tournaments の BEFORE UPDATE トリガーで行う。
++--   アプリのAPIだけでなく、PostgREST を直接叩いても同じ検証が効き、
++--   「ステータスは変わったのに監査ログが無い」状態が起きない(同一トランザクション)。
++-- - 訂正(PUBLISHED→RUNNING)と中止(→CANCELLED)は理由が必須。理由は RPC
++--   change_tournament_status() がトランザクション内の設定値 qscore.status_reason
++--   として渡し、トリガーが読んで監査ログに残す。
++-- - CANCELLED にできるのは、既に公開されていた状態(受付中〜開催中)からのみ。
++--   下書きは公開されたことがないので、中止ではなく削除する。
++-- - CANCELLED は終端状態(元に戻せない)。
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- 1. 公開範囲: 列挙(IN (...))をやめ「DRAFT 以外」にする
++--    列挙のままだと CANCELLED の大会が公開ページから消え、申込者が404を見ることになる。
++--    中止された大会は「中止されました」と表示できるよう、公開のままにする。
++-- ---------------------------------------------------------------------------
++drop policy "tournaments_select_public" on public.tournaments;
++create policy "tournaments_select_public"
++  on public.tournaments for select
++  using (status <> 'DRAFT');
++
++drop policy "announcements_select_public" on public.announcements;
++create policy "announcements_select_public"
++  on public.announcements for select
++  using (
++    is_published = true
++    and exists (
++      select 1 from public.tournaments t
++      where t.id = tournament_id and t.status <> 'DRAFT'
++    )
++  );
++
++drop policy "schedule_items_select_public" on public.schedule_items;
++create policy "schedule_items_select_public"
++  on public.schedule_items for select
++  using (
++    exists (
++      select 1 from public.tournaments t
++      where t.id = tournament_id and t.status <> 'DRAFT'
++    )
++  );
++
++drop policy "entry_form_fields_select_public" on public.entry_form_fields;
++create policy "entry_form_fields_select_public"
++  on public.entry_form_fields for select
++  using (
++    exists (
++      select 1 from public.tournaments t
++      where t.id = tournament_id and t.status <> 'DRAFT'
++    )
++  );
++
++-- ---------------------------------------------------------------------------
++-- 2. 遷移表と「理由が必要な遷移」
++-- ---------------------------------------------------------------------------
++create function public.tournament_status_transition_allowed(p_from text, p_to text)
++returns boolean
++language sql
++immutable
++as $$
++  select (p_from, p_to) in (
++    ('DRAFT',               'REGISTRATION_OPEN'),
++    ('REGISTRATION_OPEN',   'REGISTRATION_CLOSED'),
++    ('REGISTRATION_OPEN',   'DRAFT'),
++    ('REGISTRATION_OPEN',   'CANCELLED'),
++    ('REGISTRATION_CLOSED', 'RUNNING'),
++    ('REGISTRATION_CLOSED', 'REGISTRATION_OPEN'),
++    ('REGISTRATION_CLOSED', 'CANCELLED'),
++    ('RUNNING',             'FINISHED'),
++    ('RUNNING',             'CANCELLED'),
++    ('FINISHED',            'PUBLISHED'),
++    ('PUBLISHED',           'RUNNING')   -- 公開後の訂正(理由必須)
++  );
++$$;
++
++-- 訂正(公開結果の取り下げ)と中止は、理由の記録を必須にする
++create function public.tournament_status_requires_reason(p_from text, p_to text)
++returns boolean
++language sql
++immutable
++as $$
++  select p_from = 'PUBLISHED' or p_to = 'CANCELLED';
++$$;
++
++-- ---------------------------------------------------------------------------
++-- 3. トリガー: 遷移の検証 + 監査ログの記録 (同一トランザクション)
++-- ---------------------------------------------------------------------------
++create function public.guard_tournament_status_change()
++returns trigger
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_from text := old.status::text;
++  v_to text := new.status::text;
++  v_reason text;
++  v_action text;
++  v_summary text;
++begin
++  if v_from = v_to then
++    return new;
++  end if;
++
++  if not public.tournament_status_transition_allowed(v_from, v_to) then
++    raise exception 'invalid_status_transition'
++      using errcode = '22023',
++            detail = v_from || ' -> ' || v_to;
++  end if;
++
++  v_reason := left(nullif(btrim(coalesce(current_setting('qscore.status_reason', true), '')), ''), 500);
++
++  if public.tournament_status_requires_reason(v_from, v_to) and v_reason is null then
++    raise exception 'status_reason_required'
++      using errcode = '22023',
++            hint = '訂正・中止には理由が必要です';
++  end if;
++
++  if v_to = 'CANCELLED' then
++    v_action := 'tournament.cancelled';
++    v_summary := '大会を中止しました(理由: ' || v_reason || ')';
++  elsif v_from = 'PUBLISHED' then
++    v_action := 'tournament.status_corrected';
++    v_summary := '公開済みの大会を ' || v_to || ' に訂正しました(理由: ' || v_reason || ')';
++  else
++    v_action := 'tournament.status_changed';
++    v_summary := '大会のステータスを ' || v_from || ' から ' || v_to || ' に変更しました';
++  end if;
++
++  insert into public.audit_logs (tournament_id, actor_id, action, summary, metadata)
++  values (
++    old.id,
++    auth.uid(),
++    v_action,
++    v_summary,
++    jsonb_build_object('from', v_from, 'to', v_to, 'reason', v_reason)
++  );
++
++  return new;
++end;
++$$;
++
++create trigger guard_tournaments_status_change
++  before update of status on public.tournaments
++  for each row execute procedure public.guard_tournament_status_change();
++
++-- ---------------------------------------------------------------------------
++-- 4. RPC: ステータス変更 (理由つき)
++--    security invoker: tournaments の更新RLS(OWNER/ADMIN)がそのまま効く。
++--    理由をトリガーへ渡すための入口で、検証はトリガーが行う。
++-- ---------------------------------------------------------------------------
++create function public.change_tournament_status(
++  p_tournament_id uuid,
++  p_status text,
++  p_reason text default null
++)
++returns public.tournaments
++language plpgsql
++security invoker
++set search_path = public
++as $$
++declare
++  v_row public.tournaments;
++  v_count int;
++begin
++  perform set_config('qscore.status_reason', coalesce(p_reason, ''), true);
++
++  update public.tournaments
++     set status = p_status::public.tournament_status
++   where id = p_tournament_id
++  returning * into v_row;
++
++  -- 注意: PERFORM は FOUND を上書きするため、行数は更新の直後に確保する。
++  -- RLS で見えない/更新できない場合は 0 行になる(権限がない場合も not found と同じ扱い)
++  get diagnostics v_count = row_count;
++
++  -- 理由は同じトランザクション内の別の更新に持ち越さない
++  perform set_config('qscore.status_reason', '', true);
++
++  if v_count = 0 then
++    raise exception 'tournament_not_found' using errcode = 'P0002';
++  end if;
++
++  return v_row;
++end;
++$$;
++
++revoke all on function public.change_tournament_status(uuid, text, text) from public, anon;
++grant execute on function public.change_tournament_status(uuid, text, text) to authenticated;
+diff --git a/tests/db/0013_tournament_status_workflow.sql b/tests/db/0013_tournament_status_workflow.sql
+new file mode 100644
+index 0000000..67f6cd3
+--- /dev/null
++++ b/tests/db/0013_tournament_status_workflow.sql
+@@ -0,0 +1,219 @@
++-- =============================================================================
++-- DB回帰テスト: 0012/0013 (R-08 大会ステータスの訂正・中止と遷移の強制)
++--
++-- 実行方法 (ローカルSupabaseを起動した状態で。全体をロールバックするので何も残らない):
++--   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
++--     -v ON_ERROR_STOP=1 -f tests/db/0013_tournament_status_workflow.sql
++-- 成功すると最後に "ALL PASSED" が出る。失敗すると "FAIL: ..." で止まる。
++-- =============================================================================
++begin;
++
++insert into auth.users (id, email) values
++  ('00000000-0000-0000-0000-0000000000a1', 'owner@s.example'),
++  ('00000000-0000-0000-0000-0000000000b1', 'admin@s.example'),
++  ('00000000-0000-0000-0000-0000000000c1', 'op@s.example');
++
++insert into public.tournaments (id, slug, name, status, owner_id) values
++  ('20000000-0000-0000-0000-000000000001', 't-status-main',   'Main',   'DRAFT', '00000000-0000-0000-0000-0000000000a1'),
++  ('20000000-0000-0000-0000-000000000002', 't-status-cancel', 'Cancel', 'DRAFT', '00000000-0000-0000-0000-0000000000a1');
++
++insert into public.tournament_members (tournament_id, user_id, role)
++select t.id, u.user_id, u.role::public.tournament_member_role
++from public.tournaments t
++cross join (values
++  ('00000000-0000-0000-0000-0000000000a1'::uuid, 'OWNER'),
++  ('00000000-0000-0000-0000-0000000000b1'::uuid, 'ADMIN'),
++  ('00000000-0000-0000-0000-0000000000c1'::uuid, 'SCORE_OPERATOR')
++) as u(user_id, role)
++where t.slug in ('t-status-main', 't-status-cancel');
++
++-- ---------------------------------------------------------------------------
++-- 通常の遷移・不正な遷移 (ADMIN)
++-- ---------------------------------------------------------------------------
++do $$
++declare
++  v_hit boolean;
++  c_t constant uuid := '20000000-0000-0000-0000-000000000001';
++begin
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'role', 'authenticated')::text, true);
++  set local role authenticated;
++
++  perform public.change_tournament_status(c_t, 'REGISTRATION_OPEN');
++  if (select status from public.tournaments where id = c_t) <> 'REGISTRATION_OPEN' then
++    raise exception 'FAIL: 通常の遷移(DRAFT→REGISTRATION_OPEN)が反映されない';
++  end if;
++
++  -- 段飛ばしはRPCでも、テーブルを直接更新(PostgREST直叩き相当)でも拒否される
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'RUNNING');
++  exception when others then v_hit := (sqlerrm = 'invalid_status_transition'); end;
++  if not v_hit then raise exception 'FAIL: 段飛ばし遷移がRPCで拒否されない'; end if;
++
++  v_hit := false;
++  begin
++    update public.tournaments set status = 'FINISHED' where id = c_t;
++  exception when others then v_hit := (sqlerrm = 'invalid_status_transition'); end;
++  if not v_hit then raise exception 'FAIL: 段飛ばし遷移が直接UPDATEで拒否されない'; end if;
++
++  -- 直接UPDATEでは理由を渡せないので、中止は拒否される
++  v_hit := false;
++  begin
++    update public.tournaments set status = 'CANCELLED' where id = c_t;
++  exception when others then v_hit := (sqlerrm = 'status_reason_required'); end;
++  if not v_hit then raise exception 'FAIL: 理由なしの中止(直接UPDATE)が拒否されない'; end if;
++
++  perform public.change_tournament_status(c_t, 'REGISTRATION_CLOSED');
++  perform public.change_tournament_status(c_t, 'RUNNING');
++  perform public.change_tournament_status(c_t, 'FINISHED');
++  perform public.change_tournament_status(c_t, 'PUBLISHED');
++  reset role;
++
++  if (select count(*) from public.audit_logs where tournament_id = c_t and action = 'tournament.status_changed') <> 5 then
++    raise exception 'FAIL: 通常の遷移5回ぶんの監査ログが残っていない';
++  end if;
++  if exists (
++    select 1 from public.audit_logs
++    where tournament_id = c_t and actor_id is distinct from '00000000-0000-0000-0000-0000000000b1'
++  ) then
++    raise exception 'FAIL: 監査ログの実行者(actor_id)が記録されていない';
++  end if;
++end $$;
++
++-- ---------------------------------------------------------------------------
++-- 公開後の訂正 (PUBLISHED → RUNNING): 理由必須 + 監査ログ必須
++-- ---------------------------------------------------------------------------
++do $$
++declare
++  v_hit boolean;
++  c_t constant uuid := '20000000-0000-0000-0000-000000000001';
++  v_meta jsonb;
++begin
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'role', 'authenticated')::text, true);
++  set local role authenticated;
++
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'RUNNING');
++  exception when others then v_hit := (sqlerrm = 'status_reason_required'); end;
++  if not v_hit then raise exception 'FAIL: 理由なしの訂正が拒否されない'; end if;
++
++  -- 空白だけの理由も「理由なし」
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'RUNNING', '   ');
++  exception when others then v_hit := (sqlerrm = 'status_reason_required'); end;
++  if not v_hit then raise exception 'FAIL: 空白だけの理由が受理される'; end if;
++
++  if (select status from public.tournaments where id = c_t) <> 'PUBLISHED' then
++    raise exception 'FAIL: 拒否された訂正で状態が変わってしまった';
++  end if;
++
++  perform public.change_tournament_status(c_t, 'RUNNING', '得点の入力ミスを訂正するため');
++  reset role;
++
++  select metadata into v_meta
++  from public.audit_logs
++  where tournament_id = c_t and action = 'tournament.status_corrected';
++  if v_meta is null then raise exception 'FAIL: 訂正の監査ログが残っていない'; end if;
++  if v_meta ->> 'reason' <> '得点の入力ミスを訂正するため'
++     or v_meta ->> 'from' <> 'PUBLISHED' or v_meta ->> 'to' <> 'RUNNING' then
++    raise exception 'FAIL: 訂正の監査ログの内容が正しくない: %', v_meta;
++  end if;
++
++  -- 理由が次の更新に持ち越されない(同一トランザクション内でも)
++  set local role authenticated;
++  perform public.change_tournament_status(c_t, 'FINISHED');
++  perform public.change_tournament_status(c_t, 'PUBLISHED');
++  v_hit := false;
++  begin
++    update public.tournaments set status = 'RUNNING' where id = c_t;
++  exception when others then v_hit := (sqlerrm = 'status_reason_required'); end;
++  reset role;
++  if not v_hit then raise exception 'FAIL: 前回の理由が持ち越されて、理由なし訂正が通ってしまう'; end if;
++end $$;
++
++-- ---------------------------------------------------------------------------
++-- 中止 (CANCELLED)
++-- ---------------------------------------------------------------------------
++do $$
++declare
++  v_hit boolean;
++  c_t constant uuid := '20000000-0000-0000-0000-000000000002';
++begin
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'role', 'authenticated')::text, true);
++  set local role authenticated;
++
++  -- 下書きは中止できない(公開されたことがないので、削除する)
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'CANCELLED', '理由');
++  exception when others then v_hit := (sqlerrm = 'invalid_status_transition'); end;
++  if not v_hit then raise exception 'FAIL: DRAFT→CANCELLED が拒否されない'; end if;
++
++  perform public.change_tournament_status(c_t, 'REGISTRATION_OPEN');
++
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'CANCELLED');
++  exception when others then v_hit := (sqlerrm = 'status_reason_required'); end;
++  if not v_hit then raise exception 'FAIL: 理由なしの中止が拒否されない'; end if;
++
++  -- スタッフでも ADMIN 未満(SCORE_OPERATOR)は変更できない
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c1', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-0000000000c1', 'role', 'authenticated')::text, true);
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'CANCELLED', '権限のない中止');
++  exception when others then v_hit := (sqlstate = 'P0002'); end;
++  if not v_hit then raise exception 'FAIL: SCORE_OPERATOR がステータスを変更できてしまう'; end if;
++
++  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
++  perform set_config('request.jwt.claims',
++    json_build_object('sub', '00000000-0000-0000-0000-0000000000b1', 'role', 'authenticated')::text, true);
++  perform public.change_tournament_status(c_t, 'CANCELLED', '会場が使用できなくなったため');
++
++  -- CANCELLED は終端状態
++  v_hit := false;
++  begin
++    perform public.change_tournament_status(c_t, 'DRAFT');
++  exception when others then v_hit := (sqlerrm = 'invalid_status_transition'); end;
++  if not v_hit then raise exception 'FAIL: CANCELLED から戻せてしまう'; end if;
++  reset role;
++
++  if not exists (
++    select 1 from public.audit_logs
++    where tournament_id = c_t and action = 'tournament.cancelled'
++      and metadata ->> 'reason' = '会場が使用できなくなったため'
++  ) then
++    raise exception 'FAIL: 中止の監査ログが残っていない';
++  end if;
++end $$;
++
++-- ---------------------------------------------------------------------------
++-- 公開範囲: 中止された大会は公開のまま(申込者が404を見ない)、下書きは非公開
++-- ---------------------------------------------------------------------------
++do $$
++declare
++  v_n int;
++begin
++  insert into public.tournaments (id, slug, name, status, owner_id) values
++    ('20000000-0000-0000-0000-000000000003', 't-status-draft', 'Draft', 'DRAFT', '00000000-0000-0000-0000-0000000000a1');
++
++  set local role anon;
++  select count(*) into v_n from public.tournaments where slug = 't-status-cancel';
++  if v_n <> 1 then raise exception 'FAIL: 中止された大会が公開ページから見えない'; end if;
++  select count(*) into v_n from public.tournaments where slug = 't-status-draft';
++  if v_n <> 0 then raise exception 'FAIL: 下書きの大会が匿名に見えてしまう'; end if;
++  reset role;
++end $$;
++
++select 'ALL PASSED' as result;
++rollback;
+diff --git a/tests/unit/tournament-status.test.ts b/tests/unit/tournament-status.test.ts
+index 98a22e5..536f4c4 100644
+--- a/tests/unit/tournament-status.test.ts
++++ b/tests/unit/tournament-status.test.ts
+@@ -1,5 +1,17 @@
++import { readFileSync } from "node:fs";
++import { join } from "node:path";
+ import { describe, expect, it } from "vitest";
+-import { canTransition } from "@/lib/tournament/status";
++import {
++  ALLOWED_TRANSITIONS,
++  NEXT_STATUS,
++  TOURNAMENT_STATUS_LABEL,
++  canTransition,
++  mapStatusChangeError,
++  transitionRequiresReason,
++} from "@/lib/tournament/status";
++import type { TournamentStatus } from "@/types/database";
++
++const ALL_STATUSES = Object.keys(ALLOWED_TRANSITIONS) as TournamentStatus[];
+ 
+ describe("tournament status transitions", () => {
+   it("allows the normal forward flow", () => {
+@@ -25,9 +37,118 @@ describe("tournament status transitions", () => {
+     expect(canTransition("RUNNING", "REGISTRATION_OPEN")).toBe(false);
+     expect(canTransition("FINISHED", "RUNNING")).toBe(false);
+   });
++});
+ 
+-  it("PUBLISHED is a terminal state", () => {
++describe("公開後の訂正 (R-08)", () => {
++  it("PUBLISHED からは RUNNING にだけ戻せる", () => {
++    expect(ALLOWED_TRANSITIONS.PUBLISHED).toEqual(["RUNNING"]);
+     expect(canTransition("PUBLISHED", "DRAFT")).toBe(false);
+-    expect(canTransition("PUBLISHED", "RUNNING")).toBe(false);
++    expect(canTransition("PUBLISHED", "FINISHED")).toBe(false);
++  });
++
++  it("訂正は理由が必須、通常の遷移は不要", () => {
++    expect(transitionRequiresReason("PUBLISHED", "RUNNING")).toBe(true);
++    expect(transitionRequiresReason("DRAFT", "REGISTRATION_OPEN")).toBe(false);
++    expect(transitionRequiresReason("RUNNING", "FINISHED")).toBe(false);
++    expect(transitionRequiresReason("FINISHED", "PUBLISHED")).toBe(false);
++  });
++});
++
++describe("中止 CANCELLED (R-08)", () => {
++  it("受付中・受付締切・開催中から中止できる", () => {
++    expect(canTransition("REGISTRATION_OPEN", "CANCELLED")).toBe(true);
++    expect(canTransition("REGISTRATION_CLOSED", "CANCELLED")).toBe(true);
++    expect(canTransition("RUNNING", "CANCELLED")).toBe(true);
++  });
++
++  it("下書き・終了・結果公開からは中止できない", () => {
++    expect(canTransition("DRAFT", "CANCELLED")).toBe(false);
++    expect(canTransition("FINISHED", "CANCELLED")).toBe(false);
++    expect(canTransition("PUBLISHED", "CANCELLED")).toBe(false);
++  });
++
++  it("中止は理由が必須で、終端状態(どこへも戻せない)", () => {
++    expect(transitionRequiresReason("RUNNING", "CANCELLED")).toBe(true);
++    expect(ALLOWED_TRANSITIONS.CANCELLED).toEqual([]);
++  });
++});
++
++describe("画面用の定義", () => {
++  it("全てのステータスにラベルと NEXT_STATUS の定義がある", () => {
++    for (const s of ALL_STATUSES) {
++      expect(TOURNAMENT_STATUS_LABEL[s]).toBeTruthy();
++      expect(s in NEXT_STATUS).toBe(true);
++    }
++  });
++
++  it("NEXT_STATUS は常に許可された遷移で、理由を要しない", () => {
++    for (const s of ALL_STATUSES) {
++      const next = NEXT_STATUS[s];
++      if (next === null) continue;
++      expect(canTransition(s, next)).toBe(true);
++      expect(transitionRequiresReason(s, next)).toBe(false);
++    }
++  });
++});
++
++describe("mapStatusChangeError", () => {
++  it("遷移エラーは 409", () => {
++    expect(mapStatusChangeError({ code: "22023", message: "invalid_status_transition" }).status).toBe(409);
++  });
++  it("理由なしは 400", () => {
++    expect(mapStatusChangeError({ code: "22023", message: "status_reason_required" }).status).toBe(400);
++  });
++  it("大会が無い・権限が無い(P0002)は 404", () => {
++    expect(mapStatusChangeError({ code: "P0002", message: "tournament_not_found" }).status).toBe(404);
++  });
++  it("想定外は 500", () => {
++    expect(mapStatusChangeError({ message: "boom" }).status).toBe(500);
++  });
++});
++
++// TS の遷移表と、DB(マイグレーション 0013)の遷移表が一致していること。
++// DB側は PostgREST 直叩きでも効く「本当の防御線」なので、ずれると画面は許すのに
++// DBが拒否する(またはその逆)という不具合になる。
++describe("遷移表が DB(0013)と一致する", () => {
++  const sql = readFileSync(
++    join(process.cwd(), "supabase/migrations/0013_tournament_status_workflow.sql"),
++    "utf8"
++  );
++
++  function sqlTransitions(): Set<string> {
++    const fn = sql.slice(sql.indexOf("function public.tournament_status_transition_allowed"));
++    const body = fn.slice(fn.indexOf("in ("), fn.indexOf(");"));
++    const pairs = new Set<string>();
++    for (const m of body.matchAll(/\('([A-Z_]+)',\s*'([A-Z_]+)'\)/g)) {
++      pairs.add(`${m[1]}->${m[2]}`);
++    }
++    return pairs;
++  }
++
++  it("全ての遷移が一致する(過不足なし)", () => {
++    const fromTs = new Set<string>();
++    for (const from of ALL_STATUSES) {
++      for (const to of ALLOWED_TRANSITIONS[from]) fromTs.add(`${from}->${to}`);
++    }
++    expect(sqlTransitions()).toEqual(fromTs);
++  });
++
++  it("理由が必要な遷移の条件が一致する", () => {
++    const fn = sql.slice(sql.indexOf("function public.tournament_status_requires_reason"));
++    expect(fn).toContain("p_from = 'PUBLISHED' or p_to = 'CANCELLED'");
++    // TS側の判定が、この条件(PUBLISHED からの遷移 or CANCELLED への遷移)と同じ
++    for (const from of ALL_STATUSES) {
++      for (const to of ALL_STATUSES) {
++        expect(transitionRequiresReason(from, to)).toBe(from === "PUBLISHED" || to === "CANCELLED");
++      }
++    }
++  });
++
++  it("マイグレーション 0012 が CANCELLED を enum に追加している", () => {
++    const m12 = readFileSync(
++      join(process.cwd(), "supabase/migrations/0012_tournament_status_cancelled.sql"),
++      "utf8"
++    );
++    expect(m12).toMatch(/add value if not exists 'CANCELLED'/);
+   });
+ });
