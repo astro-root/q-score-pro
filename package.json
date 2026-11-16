@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "simulate": "tsx --env-file=.env.local scripts/simulate-tournament.ts"
+    "simulate": "tsx --env-file=.env.local scripts/simulate-tournament.ts",
+    "gen:types": "bash scripts/gen-types.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

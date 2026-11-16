@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 自動生成ファイル
+    "src/types/database.generated.ts",
   ]),
 ]);
 

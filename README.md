@@ -205,13 +205,22 @@ JSON/CSV でエクスポートするアプリ内機能は、マスタープロ�
 - **バックアップ (D-03)**: `/export` に表示レイアウト(`displayLayouts`)を追加しました(`schemaVersion: 2`)。
 - DB回帰テスト: `tests/db/0013_tournament_status_workflow.sql`。
 
+### 直近の変更 (型生成 D-04)
+
+- `src/types/database.generated.ts` は、本番スキーマから生成した型です(手で編集しません)。
+  マイグレーションを追加・変更したら、`npm run gen:types`(`bash scripts/gen-types.sh`)で再生成します。
+- `src/types/database.ts` は、生成型に次の3つを重ねたものです。画面・APIは `@/types/database` から import します。
+  1. jsonb カラムの中身の型(`entries.answers`、`rounds.rule_config`、`display_layouts.data` など)
+  2. 追記専用テーブルの更新制限(`audit_logs` は更新不可、`score_events` は取消の記録のみ)
+  3. RPC の引数(null を受け付ける引数など。生成器が表せないため)
+- アプリの `ScoreEventType` と DB の enum `score_event_type` がずれると、型チェックでエラーになります。
+
 ### 既知の制約
 
 - `round_participants` の得点キャッシュは、得点操作ロール(OWNER/ADMIN/SCORE_OPERATOR)が
   RPC `apply_round_computation` で直接書けます(計算結果をクライアントが渡す設計のため)。
   イベントログ(`score_events`)は追記専用で、次のイベント記録時にキャッシュは再計算されます。
-- 未実装の主な要件: `database.ts` の `supabase gen types` への置換(D-04。本番プロジェクトへの接続が必要)、
-  表示エンジンの拡張(D-05〜D-07)。
+- 未実装の主な要件: 表示エンジンの拡張(D-05〜D-07)。
 - エントリーの流量制限(IP単位)はメモリ内のベストエフォートです(サーバーレスでは複数インスタンスに分かれる)。
   DB を直接叩く経路に対しては、大会単位の上限(1分あたり60件)がマイグレーション 0011 のトリガーで効きます。
 
@@ -253,7 +262,8 @@ src/
     auth/                    -- 現在ユーザー・大会内ロール取得、認証Server Actions
     permissions/              -- ロール×アクションの権限マトリクス
     tournament/               -- 大会ステータス遷移ルール
-  types/database.ts          -- Supabase Database型 (手書き。将来 supabase gen types に置換)
+  types/database.generated.ts -- 自動生成 (supabase gen types)。手で編集しない
+  types/database.ts          -- アプリで使う Database 型 (生成型 + jsonbの中身・追記専用テーブルの型)
 tests/unit/                  -- Vitest単体テスト
 ```
 
