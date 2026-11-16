@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { requestJson } from "@/lib/api/request";
+import { MAX_IMPORT_BYTES } from "@/lib/display/limits";
 
 interface LayoutSummary {
   id: string;
@@ -29,11 +31,16 @@ export function LayoutsManager({
   const [pending, setPending] = useState(false);
   const [obsRoundByLayout, setObsRoundByLayout] = useState<Record<string, string>>({});
   const [copiedLayoutId, setCopiedLayoutId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [importNotice, setImportNotice] = useState<{ layoutId: string; warnings: string[] } | null>(
+    null
+  );
 
   async function create(duplicateFromId?: string) {
     if (!name && !duplicateFromId) return;
     setPending(true);
-    const res = await fetch(`/api/tournaments/${tournamentId}/layouts`, {
+    setError(null);
+    const r = await requestJson<{ layout: { id: string } }>(`/api/tournaments/${tournamentId}/layouts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -42,15 +49,62 @@ export function LayoutsManager({
       }),
     });
     setPending(false);
-    if (!res.ok) return;
-    const body = await res.json();
-    router.push(`/tournaments/${tournamentId}/layouts/${body.layout.id}`);
+    if (!r.ok) {
+      setError(r.message);
+      return;
+    }
+    router.push(`/tournaments/${tournamentId}/layouts/${r.data.layout.id}`);
   }
 
   async function remove(layoutId: string, layoutName: string) {
     if (!confirm(`「${layoutName}」を削除しますか?`)) return;
-    await fetch(`/api/tournaments/${tournamentId}/layouts/${layoutId}`, { method: "DELETE" });
+    setError(null);
+    const res = await fetch(`/api/tournaments/${tournamentId}/layouts/${layoutId}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      setError("レイアウトを削除できませんでした");
+      return;
+    }
     router.refresh();
+  }
+
+  // 書き出したJSONファイルを、新しいレイアウトとして取り込む (D-05)
+  async function importFile(file: File) {
+    setError(null);
+    setImportNotice(null);
+    if (file.size > MAX_IMPORT_BYTES) {
+      setError("ファイルが大きすぎます(1MBまで)");
+      return;
+    }
+    let layout: unknown;
+    try {
+      layout = JSON.parse(await file.text());
+    } catch {
+      setError("JSONとして読み取れませんでした。書き出したレイアウトのファイルを選んでください");
+      return;
+    }
+    setPending(true);
+    const r = await requestJson<{ layout: { id: string }; warnings: string[] }>(
+      `/api/tournaments/${tournamentId}/layouts/import`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name || undefined, layout }),
+      }
+    );
+    setPending(false);
+    if (!r.ok) {
+      setError(r.message);
+      return;
+    }
+    if (r.data.warnings.length > 0) {
+      // 警告があるときは自動で移動せず、内容を読んでから開けるようにする
+      setImportNotice({ layoutId: r.data.layout.id, warnings: r.data.warnings });
+      router.refresh();
+      return;
+    }
+    router.push(`/tournaments/${tournamentId}/layouts/${r.data.layout.id}`);
   }
 
   function obsUrl(layoutId: string) {
@@ -94,6 +148,57 @@ export function LayoutsManager({
         </button>
       </form>
 
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-5 py-4">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-body">JSONファイルから取り込む</p>
+          <p className="text-xs text-muted">
+            他の大会で書き出したレイアウトを、新しいレイアウトとして追加します(既存のレイアウトは変わりません)。
+            上の「新しいレイアウト名」を入力しておくと、その名前で保存します。
+          </p>
+        </div>
+        <label
+          className={`cursor-pointer rounded-md border border-border-strong px-4 py-2 text-sm text-body transition hover:bg-canvas ${
+            pending ? "pointer-events-none opacity-50" : ""
+          }`}
+        >
+          ファイルを選択
+          <input
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            disabled={pending}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ""; // 同じファイルをもう一度選べるようにする
+              if (file) void importFile(file);
+            }}
+          />
+        </label>
+      </div>
+
+      {error && (
+        <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
+
+      {importNotice && (
+        <div role="status" className="rounded-md border border-border-strong bg-canvas px-4 py-3 text-sm text-body">
+          <p className="mb-1 font-medium">取り込みました。確認してほしい点があります。</p>
+          <ul className="mb-2 list-disc pl-5 text-xs text-muted">
+            {importNotice.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+          <Link
+            href={`/tournaments/${tournamentId}/layouts/${importNotice.layoutId}`}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            取り込んだレイアウトを開く
+          </Link>
+        </div>
+      )}
+
       <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {initialLayouts.length === 0 && (
           <li className="p-8 text-center text-sm text-muted">まだレイアウトがありません</li>
@@ -113,6 +218,13 @@ export function LayoutsManager({
                 </p>
               </div>
               <div className="flex gap-2">
+                <a
+                  href={`/api/tournaments/${tournamentId}/layouts/${layout.id}/export`}
+                  download
+                  className="rounded-md border border-border-strong px-3 py-1.5 text-xs text-body hover:bg-canvas"
+                >
+                  書き出し
+                </a>
                 <button
                   onClick={() => create(layout.id)}
                   className="rounded-md border border-border-strong px-3 py-1.5 text-xs text-body hover:bg-canvas"

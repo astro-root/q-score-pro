@@ -2,6 +2,7 @@
 
 import type { DisplayBlock, DisplayDataContext, DisplayLayoutData } from "@/lib/display/types";
 import { resolveTemplate } from "@/lib/display/binding";
+import { isSafeImageUrl } from "@/lib/display/safe-url";
 import { resolvePlayerIndex, topPlayers } from "@/lib/display/player-selector";
 
 /**
@@ -32,8 +33,8 @@ export function DisplayRenderer({
         width: layout.canvas.width * scale,
         height: layout.canvas.height * scale,
         backgroundColor: layout.canvas.backgroundColor,
-        backgroundImage: layout.canvas.backgroundImageUrl
-          ? `url(${layout.canvas.backgroundImageUrl})`
+        backgroundImage: isSafeImageUrl(layout.canvas.backgroundImageUrl)
+          ? `url(${JSON.stringify(layout.canvas.backgroundImageUrl)})`
           : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -107,7 +108,8 @@ function BlockContent({ block, context }: { block: DisplayBlock; context: Displa
 
     case "IMAGE": {
       const src = resolveTemplate(block.content, context);
-      return src ? (
+      // 外部から取り込んだレイアウトもあるため、http(s) 以外のURLは表示しない
+      return src && isSafeImageUrl(src) ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
       ) : null;
