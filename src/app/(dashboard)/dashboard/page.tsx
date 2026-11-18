@@ -1,7 +1,33 @@
 import Link from "next/link";
+import { Plus, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
 import type { TournamentStatus } from "@/types/database";
+import { Badge } from "@/components/ui/Badge";
+import { LinkButton } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+
+type Tone = "neutral" | "primary" | "success" | "warning" | "danger" | "live";
+
+const STATUS_TONE: Record<TournamentStatus, Tone> = {
+  DRAFT: "neutral",
+  REGISTRATION_OPEN: "primary",
+  REGISTRATION_CLOSED: "warning",
+  RUNNING: "live",
+  FINISHED: "success",
+  PUBLISHED: "success",
+  CANCELLED: "danger",
+};
+
+interface TournamentRow {
+  id: string;
+  slug: string;
+  name: string;
+  status: TournamentStatus;
+  updated_at: string;
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -9,59 +35,61 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: memberships } = await supabase
+  const { data: memberships, error } = await supabase
     .from("tournament_members")
     .select("role, tournaments ( id, slug, name, status, updated_at )")
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
+  const rows = (memberships ?? [])
+    .map((m) => ({ role: m.role as string, t: m.tournaments as unknown as TournamentRow | null }))
+    .filter((r): r is { role: string; t: TournamentRow } => r.t !== null);
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">大会一覧</h1>
-        <Link
-          href="/tournaments/new"
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-        >
-          新しい大会を作成
-        </Link>
-      </div>
+      <PageHeader
+        title="大会一覧"
+        description="あなたがスタッフとして参加している大会です。"
+        actions={
+          <LinkButton href="/tournaments/new" icon={<Plus className="h-4 w-4" />}>
+            新しい大会を作成
+          </LinkButton>
+        }
+      />
 
-      {!memberships || memberships.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-          まだ大会がありません。「新しい大会を作成」から始めましょう。
-        </div>
+      {error && (
+        <p role="alert" className="mb-4 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
+          大会一覧を取得できませんでした: {error.message}
+        </p>
+      )}
+
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={<Trophy className="h-8 w-8" />}
+          title="まだ大会がありません"
+          description="「新しい大会を作成」から、最初の大会を始めましょう。スタッフとして招待された大会もここに表示されます。"
+        />
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-          {memberships.map((m) => {
-            const t = m.tournaments as unknown as {
-              id: string;
-              slug: string;
-              name: string;
-              status: TournamentStatus;
-              updated_at: string;
-            } | null;
-            if (!t) return null;
-            return (
-              <li key={t.id}>
-                <Link
-                  href={`/tournaments/${t.id}`}
-                  className="flex items-center justify-between px-5 py-4 transition hover:bg-slate-50"
-                >
-                  <div>
-                    <p className="font-medium text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-500">/{t.slug}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map(({ role, t }) => (
+            <li key={t.id}>
+              <Link href={`/tournaments/${t.id}`} className="block h-full">
+                <Card className="h-full p-4 transition hover:border-border-strong hover:shadow-md">
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <Badge tone={STATUS_TONE[t.status] ?? "neutral"} dot={t.status === "RUNNING"}>
                       {TOURNAMENT_STATUS_LABEL[t.status] ?? t.status}
-                    </span>
-                    <span className="text-xs text-slate-400">{m.role}</span>
+                    </Badge>
+                    <span className="text-xs font-medium text-muted">{role}</span>
                   </div>
-                </Link>
-              </li>
-            );
-          })}
+                  <p className="line-clamp-2 font-bold text-ink">{t.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted">/{t.slug}</p>
+                  <p className="mt-3 text-xs text-muted">
+                    最終更新 {new Date(t.updated_at).toLocaleDateString("ja-JP")}
+                  </p>
+                </Card>
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </div>
