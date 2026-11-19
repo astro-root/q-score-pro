@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { requestJson } from "@/lib/api/request";
@@ -206,35 +207,41 @@ export function OperatorScreen({
   }, [selectedId, participants, recordEvent, undo, moveQuestion]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+    <div className="fixed inset-0 z-40 flex flex-col bg-canvas text-ink">
+      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-4">
         <div className="flex items-center gap-4">
+          <Link
+            href={`/tournaments/${tournamentId}/rounds/${roundId}`}
+            className="text-sm font-medium text-muted hover:text-ink"
+          >
+            ← ラウンドへ戻る
+          </Link>
           <button
             onClick={() => moveQuestion("PREV")}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+            className="rounded-md border border-border-strong px-3 py-1.5 text-sm hover:bg-surface-muted"
           >
             ← 前問題
           </button>
           <span className="text-lg font-bold">第 {questionNumber} 問</span>
           <button
             onClick={() => moveQuestion("NEXT")}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+            className="rounded-md border border-border-strong px-3 py-1.5 text-sm hover:bg-surface-muted"
           >
             次問題 →
           </button>
         </div>
         <div className="flex items-center gap-3">
-          {flash && <span className="text-sm text-emerald-400">{flash}</span>}
+          {flash && <span className="text-sm font-medium text-success">{flash}</span>}
           <button
             onClick={undo}
             disabled={busy}
-            className="rounded-md border border-amber-600 px-3 py-1.5 text-sm text-amber-400 hover:bg-amber-950 disabled:opacity-50"
+            className="rounded-md border border-warning/50 px-3 py-1.5 text-sm font-medium text-warning hover:bg-warning-soft disabled:opacity-50"
           >
             Undo (Ctrl+Z)
           </button>
           <button
             onClick={() => setShowShortcuts((v) => !v)}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+            className="rounded-md border border-border-strong px-3 py-1.5 text-sm hover:bg-surface-muted"
           >
             ? ショートカット
           </button>
@@ -244,12 +251,12 @@ export function OperatorScreen({
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start justify-between gap-4 border-b border-red-800 bg-red-950 px-6 py-3 text-sm text-red-200"
+          className="flex items-start justify-between gap-4 border-b border-danger/30 bg-danger-soft px-6 py-3 text-sm text-danger"
         >
           <span>{errorMessage}</span>
           <button
             onClick={() => setErrorMessage(null)}
-            className="shrink-0 rounded border border-red-700 px-2 py-0.5 text-xs hover:bg-red-900"
+            className="shrink-0 rounded border border-danger/40 px-2 py-0.5 text-xs hover:bg-danger/10"
           >
             閉じる
           </button>
@@ -257,19 +264,19 @@ export function OperatorScreen({
       )}
 
       {showShortcuts && (
-        <div className="border-b border-slate-800 bg-slate-900 px-6 py-4">
+        <div className="border-b border-border bg-surface-muted px-6 py-4">
           <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-3">
             {SHORTCUTS.map((s) => (
               <div key={s.keys} className="flex justify-between gap-4">
-                <span className="font-mono text-indigo-400">{s.keys}</span>
-                <span className="text-slate-400">{s.label}</span>
+                <span className="font-mono font-semibold text-primary">{s.keys}</span>
+                <span className="text-muted">{s.label}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="min-h-0 flex-1 overflow-y-auto p-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {participants.map((rp, index) => {
             const selected = selectedId === rp.participant_id;
@@ -279,27 +286,27 @@ export function OperatorScreen({
                 onClick={() => setSelectedId(rp.participant_id)}
                 className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition ${
                   selected
-                    ? "border-indigo-400 bg-indigo-950/60 ring-2 ring-indigo-400"
-                    : "border-slate-800 bg-slate-900"
+                    ? "border-primary bg-primary-soft ring-2 ring-primary"
+                    : "border-border bg-surface shadow-card"
                 } ${rp.disqualified ? "opacity-50" : ""}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
+                  <span className="rounded bg-surface-muted px-2 py-0.5 text-xs font-medium text-muted">
                     {index + 1}
                   </span>
                   {rp.disqualified && (
-                    <span className="rounded-full bg-red-900 px-2 py-0.5 text-xs text-red-300">失格</span>
+                    <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">失格</span>
                   )}
                   {rp.won && (
-                    <span className="rounded-full bg-emerald-900 px-2 py-0.5 text-xs text-emerald-300">
+                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
                       勝ち抜け
                     </span>
                   )}
                 </div>
                 <div>
                   <p className="text-lg font-bold">{rp.participants?.display_name ?? "-"}</p>
-                  <p className="text-3xl font-mono font-bold text-indigo-300">{rp.score ?? 0}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="font-score text-3xl font-bold text-primary">{rp.score ?? 0}</p>
+                  <p className="text-xs text-muted">
                     正解 {rp.correct_count} ・ 誤答 {rp.wrong_count} ・ スルー {rp.through_count}
                   </p>
                 </div>
@@ -310,21 +317,21 @@ export function OperatorScreen({
                   <button
                     onClick={() => recordEvent(rp.participant_id, "CORRECT")}
                     disabled={busy}
-                    className="flex-1 rounded-md bg-emerald-700 py-2 text-sm font-semibold hover:bg-emerald-600 disabled:opacity-50"
+                    className="flex-1 rounded-md bg-success py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
                     正解
                   </button>
                   <button
                     onClick={() => recordEvent(rp.participant_id, "WRONG")}
                     disabled={busy}
-                    className="flex-1 rounded-md bg-red-700 py-2 text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                    className="flex-1 rounded-md bg-danger py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
                     誤答
                   </button>
                   <button
                     onClick={() => recordEvent(rp.participant_id, "THROUGH")}
                     disabled={busy}
-                    className="flex-1 rounded-md bg-slate-700 py-2 text-sm font-semibold hover:bg-slate-600 disabled:opacity-50"
+                    className="flex-1 rounded-md border border-border-strong bg-surface-muted py-2 text-sm font-semibold text-body hover:bg-border disabled:opacity-50"
                   >
                     スルー
                   </button>
@@ -333,14 +340,14 @@ export function OperatorScreen({
                   <button
                     onClick={() => recordEvent(rp.participant_id, "MANUAL_ADJUST", 1)}
                     disabled={busy}
-                    className="flex-1 rounded-md border border-slate-700 py-1.5 text-xs hover:bg-slate-800 disabled:opacity-50"
+                    className="flex-1 rounded-md border border-border-strong py-1.5 text-xs hover:bg-surface-muted disabled:opacity-50"
                   >
                     +1 加点
                   </button>
                   <button
                     onClick={() => recordEvent(rp.participant_id, "MANUAL_ADJUST", -1)}
                     disabled={busy}
-                    className="flex-1 rounded-md border border-slate-700 py-1.5 text-xs hover:bg-slate-800 disabled:opacity-50"
+                    className="flex-1 rounded-md border border-border-strong py-1.5 text-xs hover:bg-surface-muted disabled:opacity-50"
                   >
                     -1 減点
                   </button>
@@ -352,7 +359,7 @@ export function OperatorScreen({
                       )
                     }
                     disabled={busy}
-                    className="flex-1 rounded-md border border-red-800 py-1.5 text-xs text-red-300 hover:bg-red-950 disabled:opacity-50"
+                    className="flex-1 rounded-md border border-danger/40 py-1.5 text-xs text-danger hover:bg-danger-soft disabled:opacity-50"
                   >
                     {rp.disqualified ? "復活" : "失格"}
                   </button>
@@ -362,7 +369,7 @@ export function OperatorScreen({
           })}
         </div>
         {participants.length === 0 && (
-          <p className="mt-12 text-center text-slate-500">
+          <p className="mt-12 text-center text-muted">
             このラウンドに参加者が追加されていません。ラウンド詳細画面から追加してください。
           </p>
         )}

@@ -68,19 +68,19 @@ export function StatusControl({
 
   return (
     <div>
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-3 text-sm text-body">
         現在: {TOURNAMENT_STATUS_LABEL[currentStatus]}
       </p>
 
       {currentStatus === "CANCELLED" && (
-        <p className="text-sm text-slate-500">この大会は中止されました。状態は変更できません。</p>
+        <p className="text-sm text-muted">この大会は中止されました。状態は変更できません。</p>
       )}
 
       {next && (
         <button
           onClick={() => change(next)}
           disabled={pending}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
         >
           {pending && !reasonAction ? "更新中..." : `${TOURNAMENT_STATUS_LABEL[next]} に進める`}
         </button>
@@ -95,7 +95,7 @@ export function StatusControl({
                 setReasonAction("correct");
               }}
               disabled={pending}
-              className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50 disabled:opacity-60"
+              className="rounded-md border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning transition hover:bg-warning-soft disabled:opacity-60"
             >
               訂正のため開催中に戻す
             </button>
@@ -107,7 +107,7 @@ export function StatusControl({
                 setReasonAction("cancel");
               }}
               disabled={pending}
-              className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              className="rounded-md border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition hover:bg-danger-soft disabled:opacity-60"
             >
               大会を中止する
             </button>
@@ -116,8 +116,8 @@ export function StatusControl({
       )}
 
       {reasonAction && (
-        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-          <label className="mb-1 block text-xs font-medium text-slate-700">
+        <div className="mt-3 rounded-md border border-border bg-surface-muted p-3">
+          <label className="mb-1 block text-xs font-medium text-body">
             {reasonAction === "cancel"
               ? "中止の理由(監査ログに記録されます)"
               : "訂正の理由(監査ログに記録されます。公開中の結果は一旦非公開になります)"}
@@ -127,7 +127,7 @@ export function StatusControl({
             onChange={(e) => setReason(e.target.value)}
             maxLength={STATUS_REASON_MAX_LENGTH}
             rows={2}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <div className="mt-2 flex gap-2">
             <button
@@ -135,8 +135,8 @@ export function StatusControl({
               disabled={pending}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold text-white transition disabled:opacity-60 ${
                 reasonAction === "cancel"
-                  ? "bg-red-600 hover:bg-red-500"
-                  : "bg-amber-600 hover:bg-amber-500"
+                  ? "bg-danger hover:opacity-90"
+                  : "bg-warning hover:opacity-90"
               }`}
             >
               {pending ? "更新中..." : reasonAction === "cancel" ? "中止する" : "開催中に戻す"}
@@ -148,7 +148,7 @@ export function StatusControl({
                 setError(null);
               }}
               disabled={pending}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-white disabled:opacity-60"
+              className="rounded-md border border-border-strong px-3 py-1.5 text-xs font-medium text-body transition hover:bg-surface disabled:opacity-60"
             >
               キャンセル
             </button>
@@ -157,7 +157,7 @@ export function StatusControl({
       )}
 
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-danger">
           {error}
         </p>
       )}

@@ -52,13 +52,13 @@ export function EntryForm({
   }
 
   const inputClass =
-    "rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 
   if (done) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 text-center">
-        <p className="font-medium text-emerald-800">エントリーを受け付けました</p>
-        <p className="mt-1 text-sm text-emerald-700">大会情報は主催者からの連絡をお待ちください。</p>
+      <div className="rounded-lg border border-success/30 bg-success-soft p-6 text-center">
+        <p className="font-medium text-success">エントリーを受け付けました</p>
+        <p className="mt-1 text-sm text-success">大会情報は主催者からの連絡をお待ちください。</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function EntryForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">氏名 / 表示名</label>
+        <label className="text-sm font-medium text-body">氏名 / 表示名</label>
         <input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
@@ -76,7 +76,7 @@ export function EntryForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">メールアドレス</label>
+        <label className="text-sm font-medium text-body">メールアドレス</label>
         <input
           type="email"
           value={email}
@@ -87,7 +87,7 @@ export function EntryForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">所属(任意)</label>
+        <label className="text-sm font-medium text-body">所属(任意)</label>
         <input
           value={affiliation}
           onChange={(e) => setAffiliation(e.target.value)}
@@ -97,9 +97,9 @@ export function EntryForm({
 
       {fields.map((f) => (
         <div key={f.id} className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-body">
             {f.label}
-            {f.is_required && <span className="ml-1 text-red-500">*</span>}
+            {f.is_required && <span className="ml-1 text-danger">*</span>}
           </label>
           {f.field_type === "TEXTAREA" ? (
             <textarea
@@ -141,12 +141,12 @@ export function EntryForm({
         </div>
       ))}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "送信中..." : "エントリーする"}
       </button>

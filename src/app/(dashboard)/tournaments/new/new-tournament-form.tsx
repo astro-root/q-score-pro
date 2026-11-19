@@ -48,7 +48,7 @@ export function NewTournamentForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">大会名</label>
+        <label className="text-sm font-medium text-body">大会名</label>
         <input
           value={name}
           onChange={(e) => {
@@ -56,13 +56,13 @@ export function NewTournamentForm() {
             if (!slugTouched) setSlug(slugify(e.target.value));
           }}
           required
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="第1回 サンプルオープン"
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">URLスラッグ</label>
+        <label className="text-sm font-medium text-body">URLスラッグ</label>
         <input
           value={slug}
           onChange={(e) => {
@@ -70,28 +70,28 @@ export function NewTournamentForm() {
             setSlug(slugify(e.target.value));
           }}
           required
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="sample-open-1"
         />
-        <p className="text-xs text-slate-400">公開ページのURLに使われます(半角英数字とハイフン)</p>
+        <p className="text-xs text-muted">公開ページのURLに使われます(半角英数字とハイフン)</p>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">大会概要(任意)</label>
+        <label className="text-sm font-medium text-body">大会概要(任意)</label>
         <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={3}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "作成中..." : "大会を作成"}
       </button>

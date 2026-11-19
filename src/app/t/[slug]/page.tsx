@@ -36,7 +36,7 @@ export default async function PublicTournamentPage({
   const canEnter = tournament.status === "REGISTRATION_OPEN";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface-muted">
       {tournament.main_visual_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -50,7 +50,7 @@ export default async function PublicTournamentPage({
         {tournament.status === "CANCELLED" && (
           <div
             role="status"
-            className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+            className="mb-6 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger"
           >
             この大会は中止されました。
           </div>
@@ -62,26 +62,26 @@ export default async function PublicTournamentPage({
             <img
               src={tournament.logo_url}
               alt=""
-              className="h-16 w-16 shrink-0 rounded-lg border border-slate-200 bg-white object-contain p-1"
+              className="h-16 w-16 shrink-0 rounded-lg border border-border bg-surface object-contain p-1"
             />
           )}
           <div>
-            <span className="mb-1 inline-block rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-medium text-indigo-700">
+            <span className="mb-1 inline-block rounded-full bg-primary-soft px-3 py-0.5 text-xs font-medium text-primary">
               {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
             </span>
-            <h1 className="text-3xl font-bold text-slate-900">{tournament.name}</h1>
+            <h1 className="text-3xl font-bold text-ink">{tournament.name}</h1>
             {tournament.organizer_name && (
-              <p className="mt-1 text-sm text-slate-500">主催: {tournament.organizer_name}</p>
+              <p className="mt-1 text-sm text-muted">主催: {tournament.organizer_name}</p>
             )}
           </div>
         </div>
 
         {canEnter && (
-          <div className="mb-8 rounded-lg border border-indigo-200 bg-indigo-50 p-5">
-            <p className="mb-3 text-sm text-indigo-900">現在エントリーを受け付けています。</p>
+          <div className="mb-8 rounded-lg border border-primary/30 bg-primary-soft p-5">
+            <p className="mb-3 text-sm text-ink">現在エントリーを受け付けています。</p>
             <Link
               href={`/t/${slug}/entry`}
-              className="inline-block rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              className="inline-block rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover"
             >
               エントリーする
             </Link>
@@ -90,37 +90,37 @@ export default async function PublicTournamentPage({
 
         {tournament.summary && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">大会概要</h2>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{tournament.summary}</p>
+            <h2 className="mb-2 text-lg font-semibold text-ink">大会概要</h2>
+            <p className="whitespace-pre-wrap text-sm text-body">{tournament.summary}</p>
           </section>
         )}
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2">
           {(tournament.event_starts_at || tournament.venue) && (
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <h3 className="mb-1 text-xs font-semibold uppercase text-slate-400">開催情報</h3>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-1 text-xs font-semibold uppercase text-muted">開催情報</h3>
               {tournament.event_starts_at && (
-                <p className="text-sm text-slate-700">
+                <p className="text-sm text-body">
                   {new Date(tournament.event_starts_at).toLocaleString("ja-JP")}
                   {tournament.event_ends_at &&
                     ` 〜 ${new Date(tournament.event_ends_at).toLocaleString("ja-JP")}`}
                 </p>
               )}
-              {tournament.venue && <p className="text-sm text-slate-700">{tournament.venue}</p>}
+              {tournament.venue && <p className="text-sm text-body">{tournament.venue}</p>}
             </div>
           )}
           {(tournament.entry_starts_at || tournament.capacity) && (
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <h3 className="mb-1 text-xs font-semibold uppercase text-slate-400">エントリー情報</h3>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-1 text-xs font-semibold uppercase text-muted">エントリー情報</h3>
               {tournament.entry_starts_at && (
-                <p className="text-sm text-slate-700">
+                <p className="text-sm text-body">
                   {new Date(tournament.entry_starts_at).toLocaleString("ja-JP")}
                   {tournament.entry_ends_at &&
                     ` 〜 ${new Date(tournament.entry_ends_at).toLocaleString("ja-JP")}`}
                 </p>
               )}
               {tournament.capacity && (
-                <p className="text-sm text-slate-700">定員: {tournament.capacity}名</p>
+                <p className="text-sm text-body">定員: {tournament.capacity}名</p>
               )}
             </div>
           )}
@@ -128,14 +128,14 @@ export default async function PublicTournamentPage({
 
         {schedule && schedule.length > 0 && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">スケジュール</h2>
-            <ul className="rounded-lg border border-slate-200 bg-white">
+            <h2 className="mb-2 text-lg font-semibold text-ink">スケジュール</h2>
+            <ul className="rounded-lg border border-border bg-surface">
               {schedule.map((item) => (
-                <li key={item.id} className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-0">
-                  <span className="w-40 shrink-0 text-xs text-slate-500">
+                <li key={item.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0">
+                  <span className="w-40 shrink-0 text-xs text-muted">
                     {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString("ja-JP") : ""}
                   </span>
-                  <span className="text-sm text-slate-800">{item.label}</span>
+                  <span className="text-sm text-ink">{item.label}</span>
                 </li>
               ))}
             </ul>
@@ -144,27 +144,27 @@ export default async function PublicTournamentPage({
 
         {tournament.rules_content && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">ルール</h2>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{tournament.rules_content}</p>
+            <h2 className="mb-2 text-lg font-semibold text-ink">ルール</h2>
+            <p className="whitespace-pre-wrap text-sm text-body">{tournament.rules_content}</p>
           </section>
         )}
 
         {tournament.notes && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">注意事項</h2>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{tournament.notes}</p>
+            <h2 className="mb-2 text-lg font-semibold text-ink">注意事項</h2>
+            <p className="whitespace-pre-wrap text-sm text-body">{tournament.notes}</p>
           </section>
         )}
 
         {announcements && announcements.length > 0 && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">お知らせ</h2>
+            <h2 className="mb-2 text-lg font-semibold text-ink">お知らせ</h2>
             <ul className="flex flex-col gap-3">
               {announcements.map((a) => (
-                <li key={a.id} className="rounded-lg border border-slate-200 bg-white p-4">
-                  <p className="mb-1 text-sm font-medium text-slate-900">{a.title}</p>
-                  <p className="whitespace-pre-wrap text-sm text-slate-600">{a.body}</p>
-                  <p className="mt-2 text-xs text-slate-400">
+                <li key={a.id} className="rounded-lg border border-border bg-surface p-4">
+                  <p className="mb-1 text-sm font-medium text-ink">{a.title}</p>
+                  <p className="whitespace-pre-wrap text-sm text-body">{a.body}</p>
+                  <p className="mt-2 text-xs text-muted">
                     {new Date(a.created_at).toLocaleString("ja-JP")}
                   </p>
                 </li>
@@ -175,8 +175,8 @@ export default async function PublicTournamentPage({
 
         {tournament.contact_info && (
           <section className="mb-8">
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">問い合わせ先</h2>
-            <p className="text-sm text-slate-700">{tournament.contact_info}</p>
+            <h2 className="mb-2 text-lg font-semibold text-ink">問い合わせ先</h2>
+            <p className="text-sm text-body">{tournament.contact_info}</p>
           </section>
         )}
       </div>

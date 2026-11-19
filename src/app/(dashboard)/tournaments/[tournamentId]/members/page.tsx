@@ -28,28 +28,28 @@ export default async function MembersPage({
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">スタッフ管理</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">スタッフ管理</h1>
 
-      <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">
+      <section className="mb-6 rounded-lg border border-border bg-surface p-5">
+        <h2 className="mb-3 text-sm font-semibold text-body">
           スタッフを追加(登録済みユーザーのみ)
         </h2>
         <InviteForm tournamentId={tournamentId} />
       </section>
 
-      <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {members?.map((m) => {
           const profile = m.profiles as unknown as { display_name: string; email: string } | null;
           return (
             <li key={m.id} className="flex items-center justify-between px-5 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-ink">
                   {profile?.display_name ?? "不明なユーザー"}
                 </p>
-                <p className="text-xs text-slate-500">{profile?.email}</p>
+                <p className="text-xs text-muted">{profile?.email}</p>
               </div>
               {m.role === "OWNER" || m.user_id === currentUser?.id ? (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-body">
                   {m.role}
                   {m.user_id === currentUser?.id ? "(自分)" : ""}
                 </span>

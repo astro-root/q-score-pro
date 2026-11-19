@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/types/database";
@@ -199,13 +200,16 @@ export function LayoutEditor({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-slate-950 text-slate-100">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+    <div className="fixed inset-0 z-40 flex flex-col bg-canvas text-ink">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-3">
+          <Link href={`/tournaments/${tournamentId}/layouts`} className="text-sm font-medium text-muted hover:text-ink">
+            ← レイアウト一覧
+          </Link>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm"
+            className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm"
           />
           <select
             value={previewRoundId}
@@ -213,7 +217,7 @@ export function LayoutEditor({
               setPreviewRoundId(e.target.value);
               if (!e.target.value) setPreviewContext(SAMPLE_CONTEXT);
             }}
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm"
+            className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm"
           >
             <option value="">サンプルデータでプレビュー</option>
             {rounds.map((r) => (
@@ -224,21 +228,21 @@ export function LayoutEditor({
           </select>
         </div>
         <div className="flex items-center gap-2">
-          {message && <span className="text-xs text-emerald-400">{message}</span>}
-          <label className="cursor-pointer rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800">
+          {message && <span className="text-xs font-medium text-success">{message}</span>}
+          <label className="cursor-pointer rounded-md border border-border-strong px-3 py-1.5 text-xs hover:bg-surface-muted">
             インポート
             <input type="file" accept="application/json" onChange={importJson} className="hidden" />
           </label>
           <button
             onClick={exportJson}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
+            className="rounded-md border border-border-strong px-3 py-1.5 text-xs hover:bg-surface-muted"
           >
             エクスポート
           </button>
           <button
             onClick={save}
             disabled={saving}
-            className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
           >
             {saving ? "保存中..." : "保存"}
           </button>
@@ -246,21 +250,21 @@ export function LayoutEditor({
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-48 shrink-0 overflow-y-auto border-r border-slate-800 p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">ブロックを追加</h3>
+        <aside className="w-48 shrink-0 overflow-y-auto border-r border-border bg-surface p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase text-muted">ブロックを追加</h3>
           <div className="flex flex-col gap-2">
             {BLOCK_PALETTE.map((item) => (
               <button
                 key={item.type}
                 onClick={() => addBlock(item.type)}
-                className="rounded-md border border-slate-700 px-3 py-2 text-left text-sm hover:bg-slate-800"
+                className="rounded-md border border-border-strong px-3 py-2 text-left text-sm hover:bg-surface-muted"
               >
                 + {item.label}
               </button>
             ))}
           </div>
 
-          <h3 className="mt-6 mb-2 text-xs font-semibold uppercase text-slate-500">レイヤー</h3>
+          <h3 className="mt-6 mb-2 text-xs font-semibold uppercase text-muted">レイヤー</h3>
           <ul className="flex flex-col gap-1">
             {[...data.blocks]
               .sort((a, b) => b.rect.zIndex - a.rect.zIndex)
@@ -269,7 +273,7 @@ export function LayoutEditor({
                   <button
                     onClick={() => setSelectedBlockId(b.id)}
                     className={`w-full truncate rounded px-2 py-1 text-left text-xs ${
-                      selectedBlockId === b.id ? "bg-indigo-900 text-indigo-200" : "hover:bg-slate-800"
+                      selectedBlockId === b.id ? "bg-primary-soft font-medium text-primary" : "hover:bg-surface-muted"
                     }`}
                   >
                     {b.type} {!b.visible && "(非表示)"}
@@ -279,12 +283,12 @@ export function LayoutEditor({
           </ul>
         </aside>
 
-        <main className="flex flex-1 items-center justify-center overflow-auto bg-slate-900 p-8">
+        <main className="flex flex-1 items-center justify-center overflow-auto bg-surface-muted p-8">
           <div
             ref={canvasRef}
             onClick={() => setSelectedBlockId(null)}
             style={{ width: PREVIEW_WIDTH, height: data.canvas.height * scale }}
-            className="relative shadow-2xl"
+            className="relative shadow-lg ring-1 ring-border-strong"
           >
             <DisplayRenderer layout={data} context={previewContext} scale={scale} />
             {/* Interaction overlay: invisible draggable/resizable handles positioned over each block */}
@@ -322,7 +326,7 @@ export function LayoutEditor({
           </div>
         </main>
 
-        <aside className="w-72 shrink-0 overflow-y-auto border-l border-slate-800 p-4">
+        <aside className="w-72 shrink-0 overflow-y-auto border-l border-border bg-surface p-4">
           {selectedBlock ? (
             <BlockPropertyPanel
               block={selectedBlock}
@@ -331,7 +335,7 @@ export function LayoutEditor({
               onDelete={deleteSelected}
             />
           ) : (
-            <p className="text-sm text-slate-500">ブロックを選択すると設定を編集できます。</p>
+            <p className="text-sm text-muted">ブロックを選択すると設定を編集できます。</p>
           )}
         </aside>
       </div>

@@ -43,22 +43,22 @@ export function InviteForm({ tournamentId }: { tournamentId: string }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <div className="flex flex-1 flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">メールアドレス</label>
+        <label className="text-sm font-medium text-body">メールアドレス</label>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="staff@example.com"
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">権限</label>
+        <label className="text-sm font-medium text-body">権限</label>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         >
           {ROLE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -70,11 +70,11 @@ export function InviteForm({ tournamentId }: { tournamentId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+        className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {pending ? "追加中..." : "追加"}
       </button>
-      {error && <p className="text-sm text-red-600 sm:ml-2">{error}</p>}
+      {error && <p className="text-sm text-danger sm:ml-2">{error}</p>}
     </form>
   );
 }

@@ -25,17 +25,17 @@ export default async function PublicEntryPage({
     .order("sort_order", { ascending: true });
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
+    <div className="min-h-screen bg-surface-muted px-4 py-10">
       <div className="mx-auto max-w-lg">
-        <h1 className="mb-1 text-2xl font-bold text-slate-900">{tournament.name}</h1>
-        <p className="mb-6 text-sm text-slate-500">エントリーフォーム</p>
+        <h1 className="mb-1 text-2xl font-bold text-ink">{tournament.name}</h1>
+        <p className="mb-6 text-sm text-muted">エントリーフォーム</p>
 
         {tournament.status === "REGISTRATION_OPEN" ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <div className="rounded-lg border border-border bg-surface p-6">
             <EntryForm tournamentId={tournament.id} fields={fields ?? []} />
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+          <div className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-muted">
             {tournament.status === "CANCELLED"
               ? "この大会は中止されました。"
               : "現在この大会はエントリーを受け付けていません。"}

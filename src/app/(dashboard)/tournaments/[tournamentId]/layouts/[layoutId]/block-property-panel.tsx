@@ -26,27 +26,27 @@ export function BlockPropertyPanel({
   onDelete: () => void;
 }) {
   const inputClass =
-    "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+    "w-full rounded-md border border-border-strong px-2 py-1.5 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 
   return (
-    <div className="flex flex-col gap-4 text-slate-200">
+    <div className="flex flex-col gap-4 text-body">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">ブロック設定</h3>
-        <button onClick={onDelete} className="text-xs text-red-400 hover:underline">
+        <button onClick={onDelete} className="text-xs font-medium text-danger hover:underline">
           削除
         </button>
       </div>
 
       {block.type === "TEXT" && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">テキスト(テンプレート)</label>
+          <label className="text-xs text-muted">テキスト(テンプレート)</label>
           <textarea
             value={block.content}
             onChange={(e) => onChange({ ...block, content: e.target.value })}
             rows={3}
             className={inputClass}
           />
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-muted">
             使用可能トークン: {AVAILABLE_TOKENS.join(", ")}
           </p>
         </div>
@@ -54,7 +54,7 @@ export function BlockPropertyPanel({
 
       {block.type === "IMAGE" && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">画像URL(またはトークン)</label>
+          <label className="text-xs text-muted">画像URL(またはトークン)</label>
           <input
             value={block.content}
             onChange={(e) => onChange({ ...block, content: e.target.value })}
@@ -66,7 +66,7 @@ export function BlockPropertyPanel({
       {block.type === "PLAYER_CARD" && (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">表示する参加者</label>
+            <label className="text-xs text-muted">表示する参加者</label>
             <select
               value={block.playerSelector?.mode === "PARTICIPANT" ? "PARTICIPANT" : "RANK"}
               onChange={(e) =>
@@ -86,7 +86,7 @@ export function BlockPropertyPanel({
           </div>
           {block.playerSelector?.mode === "RANK" && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-400">順位</label>
+              <label className="text-xs text-muted">順位</label>
               <input
                 type="number"
                 min={1}
@@ -100,7 +100,7 @@ export function BlockPropertyPanel({
           )}
           {block.playerSelector?.mode === "PARTICIPANT" && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-400">参加者</label>
+              <label className="text-xs text-muted">参加者</label>
               <select
                 value={block.playerSelector.participantId}
                 onChange={(e) =>
@@ -120,7 +120,7 @@ export function BlockPropertyPanel({
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">表示項目</label>
+            <label className="text-xs text-muted">表示項目</label>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(FIELD_LABEL) as PlayerCardField[]).map((f) => (
                 <label key={f} className="flex items-center gap-1 text-xs">
@@ -147,7 +147,7 @@ export function BlockPropertyPanel({
 
       {(block.type === "RANKING_LIST" || block.type === "SCOREBOARD") && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">表示件数</label>
+          <label className="text-xs text-muted">表示件数</label>
           <input
             type="number"
             min={1}
@@ -158,11 +158,11 @@ export function BlockPropertyPanel({
         </div>
       )}
 
-      <hr className="border-slate-700" />
+      <hr className="border-border" />
 
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">X</label>
+          <label className="text-xs text-muted">X</label>
           <input
             type="number"
             value={block.rect.x}
@@ -171,7 +171,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">Y</label>
+          <label className="text-xs text-muted">Y</label>
           <input
             type="number"
             value={block.rect.y}
@@ -180,7 +180,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">幅</label>
+          <label className="text-xs text-muted">幅</label>
           <input
             type="number"
             value={block.rect.width}
@@ -191,7 +191,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">高さ</label>
+          <label className="text-xs text-muted">高さ</label>
           <input
             type="number"
             value={block.rect.height}
@@ -203,11 +203,11 @@ export function BlockPropertyPanel({
         </div>
       </div>
 
-      <hr className="border-slate-700" />
+      <hr className="border-border" />
 
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">背景色</label>
+          <label className="text-xs text-muted">背景色</label>
           <input
             type="color"
             value={block.style.backgroundColor || "#000000"}
@@ -216,7 +216,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">文字色</label>
+          <label className="text-xs text-muted">文字色</label>
           <input
             type="color"
             value={block.style.textColor}
@@ -225,7 +225,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">文字サイズ</label>
+          <label className="text-xs text-muted">文字サイズ</label>
           <input
             type="number"
             value={block.style.fontSize}
@@ -236,7 +236,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">太さ</label>
+          <label className="text-xs text-muted">太さ</label>
           <select
             value={block.style.fontWeight}
             onChange={(e) =>
@@ -249,7 +249,7 @@ export function BlockPropertyPanel({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">角丸</label>
+          <label className="text-xs text-muted">角丸</label>
           <input
             type="number"
             value={block.style.borderRadius}
@@ -260,7 +260,7 @@ export function BlockPropertyPanel({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">不透明度</label>
+          <label className="text-xs text-muted">不透明度</label>
           <input
             type="number"
             min={0}

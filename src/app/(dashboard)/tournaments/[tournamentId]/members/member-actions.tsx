@@ -64,7 +64,7 @@ export function MemberActions({
           disabled={pending}
           onChange={(e) => changeRole(e.target.value)}
           aria-label={`${displayName} のロール`}
-          className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+          className="rounded-md border border-border-strong px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
         >
           {ROLE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -76,13 +76,13 @@ export function MemberActions({
           type="button"
           onClick={remove}
           disabled={pending}
-          className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+          className="rounded-md border border-danger/30 px-2 py-1 text-xs font-medium text-danger transition hover:bg-danger-soft disabled:opacity-60"
         >
           外す
         </button>
       </div>
       {error && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}
