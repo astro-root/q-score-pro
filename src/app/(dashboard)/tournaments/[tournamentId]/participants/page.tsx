@@ -45,6 +45,7 @@ export default async function ParticipantsPage({
         tournamentId={tournamentId}
         initialParticipants={participants ?? []}
         unimportedEntries={unimportedEntries}
+        canExport={can(role, "tournament:export_data")}
       />
     </div>
   );

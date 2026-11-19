@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
+import { LinkButton } from "@/components/ui/Button";
 import { RoundDetail } from "./round-detail";
 
 export default async function RoundDetailPage({
@@ -44,10 +45,18 @@ export default async function RoundDetailPage({
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold text-ink">{round.name}</h1>
-      <p className="mb-6 text-sm text-muted">
+      <p className="mb-3 text-sm text-muted">
         {round.round_type === "PAPER" ? "ペーパークイズ" : "早押しクイズ"}
         {round.advance_count ? ` ・ 通過人数 ${round.advance_count}名` : ""}
       </p>
+      {round.round_type === "PAPER" && (
+        <div className="mb-6">
+          <LinkButton href={`/tournaments/${tournamentId}/rounds/${roundId}/paper`} size="sm">
+            ペーパー採点(問題ごとの正誤・統計・プレート色)
+          </LinkButton>
+        </div>
+      )}
+      {round.round_type !== "PAPER" && <div className="mb-3" />}
 
       <RoundDetail
         tournamentId={tournamentId}
