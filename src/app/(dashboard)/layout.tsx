@@ -15,17 +15,18 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="text-lg font-bold text-slate-900">
-            Q-Score Pro
+      <header className="sticky top-0 z-30 border-b border-border bg-surface">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-lg font-extrabold tracking-tight">
+            <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+            <span className="text-gradient-brand">Q-Score Pro</span>
           </Link>
-          <div className="flex items-center gap-4 text-sm text-slate-600">
-            <span>{user.displayName}</span>
+          <div className="flex items-center gap-3 text-sm text-body">
+            <span className="hidden sm:inline">{user.displayName}</span>
             <form action={signOut}>
               <button
                 type="submit"
-                className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100"
+                className="rounded-lg border border-border px-3 py-1.5 font-medium text-body transition hover:border-border-strong hover:bg-surface-muted"
               >
                 ログアウト
               </button>
@@ -33,7 +34,7 @@ export default async function DashboardLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
     </div>
   );
 }

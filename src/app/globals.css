@@ -1,49 +1,48 @@
 @import "tailwindcss";
 
 /*
- * Q-Score Pro design tokens.
+ * Q-Score Pro design tokens (light theme).
  *
- * Direction: a dark broadcast control-room aesthetic (Linear / Vercel /
- * Raycast register), not a generic light SaaS admin. Layered near-black
- * surfaces create depth, a single violet accent carries interactive state,
- * and amber is reserved exclusively for the scoreboard signature (live
- * status, scores, ranks) - the one thing on screen that should feel like
- * it's glowing off a stage display. A quiet grain overlay and glass cards
- * keep flat dark fills from looking dead. Numbers that matter render with
- * tabular figures via .font-score.
+ * Direction: a white-based, calm operations UI. Pages sit on a very light
+ * grey canvas, content lives on white surfaces separated by thin borders.
+ * Text uses dark slate (never pure black) in three steps: ink (headings),
+ * body (paragraphs), muted (secondary, still >= 4.5:1 on white).
+ * One indigo accent carries interactive state; amber is reserved for the
+ * live/scoreboard signal. Semantic colors come as strong + soft pairs.
+ * Numbers that matter render with tabular figures via .font-score.
  */
 :root {
-  --background: #0a0b12;
-  --foreground: #f5f6fa;
+  --background: #f5f6f8;
+  --foreground: #1f2937;
 
-  /* depth ladder, darkest to lightest */
-  --color-panel: #000000;
-  --color-canvas: #0a0b12;
-  --color-surface: #14151f;
-  --color-surface-muted: #1b1d2a;
-  --color-border: #262838;
-  --color-border-strong: #383b52;
+  /* surface ladder, page -> raised */
+  --color-panel: #111827;
+  --color-canvas: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f3f6;
+  --color-border: #e1e5ea;
+  --color-border-strong: #c5ccd6;
 
-  --color-ink: #f5f6fa;
-  --color-body: #b4b7c9;
-  --color-muted: #7b7f99;
+  --color-ink: #111827;
+  --color-body: #374151;
+  --color-muted: #5b6577;
 
-  --color-primary: #6957e0;
-  --color-primary-hover: #7c6ff0;
-  --color-primary-soft: #211c3d;
+  --color-primary: #4338ca;
+  --color-primary-hover: #3730a3;
+  --color-primary-soft: #eceefe;
 
-  --color-accent: #ffc247;
-  --color-accent-soft: #362708;
-  --color-accent-ink: #ffd98a;
+  --color-accent: #d97706;
+  --color-accent-soft: #fef3c7;
+  --color-accent-ink: #92400e;
 
-  --color-success: #34d399;
-  --color-success-soft: #0f2e22;
-  --color-danger: #f87171;
-  --color-danger-soft: #341417;
-  --color-warning: #fbbf24;
-  --color-warning-soft: #362708;
+  --color-success: #047857;
+  --color-success-soft: #d9f5e8;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fdeaea;
+  --color-warning: #a16207;
+  --color-warning-soft: #fdf1cf;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.05), 0 2px 8px rgba(17, 24, 39, 0.04);
 }
 
 @theme inline {
@@ -92,9 +91,9 @@ body {
   font-weight: 700;
 }
 
-/* Violet -> amber gradient text, reserved for the wordmark only. */
+/* Indigo -> amber gradient text, reserved for the wordmark only. */
 .text-gradient-brand {
-  background: linear-gradient(90deg, #a89bff 0%, #ffc247 100%);
+  background: linear-gradient(90deg, #4338ca 0%, #d97706 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -106,32 +105,15 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-primary-hover);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* Subtle grain overlay - fixed, full-viewport, applied once at the body
-   level so every page gets the same quiet texture instead of a flat,
-   dead-looking dark fill. Kept very low opacity; it should be felt, not seen. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Glass surface variant - translucent + blurred, for elevated hero cards
-   that should feel like they're floating above the glow rather than sitting
-   flat on it. */
+/* Glass is kept as an alias of a plain raised surface so existing callers
+   keep working; the light theme has no translucent effects. */
 .glass {
-  background: color-mix(in srgb, var(--color-surface) 65%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in srgb, white 8%, transparent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 @keyframes fade-in-up {
