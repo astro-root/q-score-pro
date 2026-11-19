@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { TOURNAMENT_NAV, visibleNav } from "@/lib/tournament/nav";
 import { can } from "@/lib/permissions";
@@ -32,15 +34,42 @@ describe("tournament nav visibility", () => {
     }
   });
 
-  it("limits view-only roles to overview, participants and rounds", () => {
+  it("limits view-only roles to overview and rounds", () => {
     for (const role of ["VENUE_STAFF", "VIEWER"] as const) {
-      expect(paths(role)).toEqual(["", "/participants", "/rounds"]);
+      expect(paths(role)).toEqual(["", "/rounds"]);
     }
   });
 
-  it("gives STREAM_OPERATOR the display layouts but not staff management", () => {
-    expect(paths("STREAM_OPERATOR")).toContain("/layouts");
-    expect(paths("STREAM_OPERATOR")).not.toContain("/members");
+  it("never offers staff management or audit log to non-admin roles", () => {
+    for (const role of ["QUESTION_MANAGER", "SCORE_OPERATOR", "GRADER", "STREAM_OPERATOR"] as const) {
+      expect(paths(role)).not.toContain("/members");
+      expect(paths(role)).not.toContain("/audit-log");
+    }
+  });
+
+  // 画面側の権限判定とナビの判定が食い違うと、リンクを押しても概要へ戻される。
+  // 食い違いを実ファイルから検出する。
+  it.each([
+    ["/participants", "participants"],
+    ["/entry-fields", "entry-fields"],
+    ["/layouts", "layouts"],
+    ["/cms", "cms"],
+    ["/announcements", "announcements"],
+    ["/schedule", "schedule"],
+    ["/entries", "entries"],
+    ["/stages", "stages"],
+    ["/members", "members"],
+    ["/audit-log", "audit-log"],
+  ])("ナビの権限 %s は page.tsx の can() と一致する", (navPath, dir) => {
+    const file = path.join(
+      process.cwd(),
+      "src/app/(dashboard)/tournaments/[tournamentId]",
+      dir,
+      "page.tsx"
+    );
+    const gates = [...readFileSync(file, "utf8").matchAll(/can\(role, "(tournament:[a-z_]+)"\)/g)].map((m) => m[1]);
+    const item = TOURNAMENT_NAV.flatMap((g) => g.items).find((i) => i.path === navPath)!;
+    expect(gates).toContain(item.action);
   });
 
   it("shows nothing to a non-member", () => {

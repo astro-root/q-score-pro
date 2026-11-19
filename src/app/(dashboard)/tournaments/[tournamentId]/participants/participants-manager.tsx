@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/types/database";
 
@@ -18,12 +18,24 @@ export function ParticipantsManager({
   tournamentId,
   initialParticipants,
   unimportedEntries,
+  canExport = false,
 }: {
   tournamentId: string;
   initialParticipants: Participant[];
   unimportedEntries: Entry[];
+  canExport?: boolean;
 }) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return initialParticipants.filter(
+      (p) =>
+        (!statusFilter || p.status === statusFilter) &&
+        (!q || `${p.display_name} ${p.affiliation ?? ""}`.toLowerCase().includes(q))
+    );
+  }, [initialParticipants, query, statusFilter]);
   const [displayName, setDisplayName] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [pending, setPending] = useState(false);
@@ -133,6 +145,42 @@ export function ParticipantsManager({
         </button>
       </form>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="氏名・所属で検索"
+            aria-label="参加者を検索"
+            className="w-64 rounded-md border border-border-strong bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="ステータスで絞り込み"
+            className="rounded-md border border-border-strong bg-surface px-2 py-2 text-sm"
+          >
+            <option value="">すべてのステータス</option>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-muted">
+            {visible.length} / {initialParticipants.length} 名
+          </span>
+        </div>
+        {canExport && (
+          <a
+            href={`/api/tournaments/${tournamentId}/participants/export${statusFilter ? `?status=${statusFilter}` : ""}`}
+            className="inline-flex items-center rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-border-strong hover:bg-surface-muted"
+          >
+            CSVエクスポート{statusFilter ? `(${STATUS_LABEL[statusFilter]}のみ)` : ""}
+          </a>
+        )}
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-canvas text-xs uppercase text-muted">
@@ -143,14 +191,14 @@ export function ParticipantsManager({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {initialParticipants.length === 0 && (
+            {visible.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-muted">
-                  まだ参加者がいません
+                  {initialParticipants.length === 0 ? "まだ参加者がいません" : "条件に一致する参加者がいません"}
                 </td>
               </tr>
             )}
-            {initialParticipants.map((p) => (
+            {visible.map((p) => (
               <tr key={p.id}>
                 <td className="px-4 py-3 font-medium text-ink">{p.display_name}</td>
                 <td className="px-4 py-3 text-body">{p.affiliation ?? "-"}</td>

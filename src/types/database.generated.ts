@@ -268,6 +268,106 @@ export type Database = {
           },
         ]
       }
+      paper_answers: {
+        Row: {
+          created_at: string
+          graded_by: string | null
+          id: string
+          is_correct: boolean
+          participant_id: string
+          question_id: string
+          round_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          graded_by?: string | null
+          id?: string
+          is_correct: boolean
+          participant_id: string
+          question_id: string
+          round_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          graded_by?: string | null
+          id?: string
+          is_correct?: boolean
+          participant_id?: string
+          question_id?: string
+          round_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_answers_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_answers_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "paper_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paper_answers_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paper_questions: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          number: number
+          points: number
+          round_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          number: number
+          points?: number
+          round_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          number?: number
+          points?: number
+          round_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_questions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participants: {
         Row: {
           affiliation: string | null
@@ -355,6 +455,7 @@ export type Database = {
           id: string
           participant_id: string
           passed: boolean | null
+          plate_color: string | null
           rank: number | null
           round_id: string
           score: number | null
@@ -371,6 +472,7 @@ export type Database = {
           id?: string
           participant_id: string
           passed?: boolean | null
+          plate_color?: string | null
           rank?: number | null
           round_id: string
           score?: number | null
@@ -387,6 +489,7 @@ export type Database = {
           id?: string
           participant_id?: string
           passed?: boolean | null
+          plate_color?: string | null
           rank?: number | null
           round_id?: string
           score?: number | null
@@ -829,6 +932,14 @@ export type Database = {
         Returns: boolean
       }
       lock_round_score_state: { Args: { p_round_id: string }; Returns: number }
+      paper_recompute_round: {
+        Args: { p_round_id: string }
+        Returns: undefined
+      }
+      recompute_paper_round: {
+        Args: { p_round_id: string }
+        Returns: undefined
+      }
       record_score_event: {
         Args: {
           p_event_type: Database["public"]["Enums"]["score_event_type"]
@@ -855,6 +966,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      submit_paper_answers: {
+        Args: { p_answers: Json; p_round_id: string }
+        Returns: undefined
       }
       tournament_status_requires_reason: {
         Args: { p_from: string; p_to: string }

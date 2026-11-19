@@ -85,6 +85,8 @@ export type Database = Override<
               { p_status: TournamentStatus; p_reason?: string | null }
             >;
             apply_round_computation: WithArgs<Functions["apply_round_computation"], { p_rows: unknown }>;
+            // p_answers は呼び出し側の配列をそのまま渡す(jsonb)
+            submit_paper_answers: WithArgs<Functions["submit_paper_answers"], { p_answers: unknown }>;
           }
         >;
       }
