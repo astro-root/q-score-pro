@@ -932,6 +932,14 @@ export type Database = {
         Returns: boolean
       }
       lock_round_score_state: { Args: { p_round_id: string }; Returns: number }
+      paper_recompute_round: {
+        Args: { p_round_id: string }
+        Returns: undefined
+      }
+      recompute_paper_round: {
+        Args: { p_round_id: string }
+        Returns: undefined
+      }
       record_score_event: {
         Args: {
           p_event_type: Database["public"]["Enums"]["score_event_type"]
@@ -959,7 +967,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      recompute_paper_round: { Args: { p_round_id: string }; Returns: undefined }
       submit_paper_answers: {
         Args: { p_answers: Json; p_round_id: string }
         Returns: undefined
