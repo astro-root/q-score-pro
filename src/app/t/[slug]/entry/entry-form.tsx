@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Database } from "@/types/database";
+import { EntryFieldInput } from "@/components/entry/EntryFieldInput";
 
 type EntryFormField = Database["public"]["Tables"]["entry_form_fields"]["Row"];
 
@@ -96,49 +97,13 @@ export function EntryForm({
       </div>
 
       {fields.map((f) => (
-        <div key={f.id} className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">
-            {f.label}
-            {f.is_required && <span className="ml-1 text-danger">*</span>}
-          </label>
-          {f.field_type === "TEXTAREA" ? (
-            <textarea
-              required={f.is_required}
-              rows={3}
-              onChange={(e) => setAnswer(f.field_key, e.target.value)}
-              className={inputClass}
-            />
-          ) : f.field_type === "SELECT" ? (
-            <select
-              required={f.is_required}
-              defaultValue=""
-              onChange={(e) => setAnswer(f.field_key, e.target.value)}
-              className={inputClass}
-            >
-              <option value="" disabled>
-                選択してください
-              </option>
-              {(f.options ?? []).map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          ) : f.field_type === "CHECKBOX" ? (
-            <input
-              type="checkbox"
-              onChange={(e) => setAnswer(f.field_key, e.target.checked)}
-              className="h-4 w-4 self-start"
-            />
-          ) : (
-            <input
-              type={f.field_type === "EMAIL" ? "email" : f.field_type === "NUMBER" ? "number" : "text"}
-              required={f.is_required}
-              onChange={(e) => setAnswer(f.field_key, e.target.value)}
-              className={inputClass}
-            />
-          )}
-        </div>
+        <EntryFieldInput
+          key={f.id}
+          field={f}
+          value={answers[f.field_key]}
+          onChange={(v) => setAnswer(f.field_key, v)}
+          idPrefix="entry"
+        />
       ))}
 
       {error && <p className="text-sm text-danger">{error}</p>}

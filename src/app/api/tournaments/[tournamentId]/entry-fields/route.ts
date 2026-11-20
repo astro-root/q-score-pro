@@ -63,19 +63,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   const supabase = await createClient();
 
-  const { error: deleteError } = await supabase
-    .from("entry_form_fields")
-    .delete()
-    .eq("tournament_id", tournamentId);
-  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
-
-  if (parsed.data.fields.length === 0) {
-    return NextResponse.json({ fields: [] });
-  }
-
-  const { data, error: insertError } = await supabase
-    .from("entry_form_fields")
-    .insert(
+  // 「全削除 → 全挿入」だと、挿入に失敗したときにフォーム定義が全部消える。
+  // 先に upsert(既存項目は id を保ったまま更新)し、成功してから、送られなかった項目だけを消す。
+  // どの時点で失敗しても、項目が減ることはない。
+  if (parsed.data.fields.length > 0) {
+    const { error: upsertError } = await supabase.from("entry_form_fields").upsert(
       parsed.data.fields.map((f, index) => ({
         tournament_id: tournamentId,
         field_key: f.fieldKey,
@@ -84,10 +76,23 @@ export async function PUT(request: Request, { params }: RouteParams) {
         is_required: f.isRequired ?? false,
         options: f.fieldType === "SELECT" ? (f.options ?? []) : null,
         sort_order: index,
-      }))
-    )
-    .select();
+      })),
+      { onConflict: "tournament_id,field_key" }
+    );
+    if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  }
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  // 項目キーは zod で [a-z0-9_] に制限済みなので、フィルタ構文に埋め込んでも安全
+  const removeQuery = supabase.from("entry_form_fields").delete().eq("tournament_id", tournamentId);
+  const { error: deleteError } =
+    keys.length > 0 ? await removeQuery.not("field_key", "in", `(${keys.join(",")})`) : await removeQuery;
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+  const { data, error: selectError } = await supabase
+    .from("entry_form_fields")
+    .select("*")
+    .eq("tournament_id", tournamentId)
+    .order("sort_order", { ascending: true });
+  if (selectError) return NextResponse.json({ error: selectError.message }, { status: 500 });
   return NextResponse.json({ fields: data });
 }
