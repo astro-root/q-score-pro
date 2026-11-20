@@ -790,7 +790,10 @@ export type Database = {
           capacity: number | null
           contact_info: string | null
           created_at: string
+          entry_auto_register: boolean
+          entry_closes_at: string | null
           entry_ends_at: string | null
+          entry_opens_at: string | null
           entry_starts_at: string | null
           event_ends_at: string | null
           event_starts_at: string | null
@@ -812,7 +815,10 @@ export type Database = {
           capacity?: number | null
           contact_info?: string | null
           created_at?: string
+          entry_auto_register?: boolean
+          entry_closes_at?: string | null
           entry_ends_at?: string | null
+          entry_opens_at?: string | null
           entry_starts_at?: string | null
           event_ends_at?: string | null
           event_starts_at?: string | null
@@ -834,7 +840,10 @@ export type Database = {
           capacity?: number | null
           contact_info?: string | null
           created_at?: string
+          entry_auto_register?: boolean
+          entry_closes_at?: string | null
           entry_ends_at?: string | null
+          entry_opens_at?: string | null
           entry_starts_at?: string | null
           event_ends_at?: string | null
           event_starts_at?: string | null
@@ -890,7 +899,10 @@ export type Database = {
           capacity: number | null
           contact_info: string | null
           created_at: string
+          entry_auto_register: boolean
+          entry_closes_at: string | null
           entry_ends_at: string | null
+          entry_opens_at: string | null
           entry_starts_at: string | null
           event_ends_at: string | null
           event_starts_at: string | null
