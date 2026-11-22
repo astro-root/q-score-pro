@@ -32,3 +32,10 @@ next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# 配布用のパッチ・適用スクリプト(リポジトリの外 ~/qsp-patches に置く)
+/phase*.patch
+/ship-*.sh
+/apply-*.sh
+/recover-*.sh
+/fix-*.sh
