@@ -1,0 +1,1247 @@
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/cms/cms-form.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/cms/cms-form.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/cms/cms-form.tsx	2026-11-18 02:13:13.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/cms/cms-form.tsx	2026-11-20 00:26:37.000000000 +0000
+@@ -3,21 +3,10 @@
+ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+ import type { Database } from "@/types/database";
++import { fromJstInputValue, toJstInputValue } from "@/lib/entries/window";
+ 
+ type Tournament = Database["public"]["Tables"]["tournaments"]["Row"];
+ 
+-function toLocalInputValue(iso: string | null): string {
+-  if (!iso) return "";
+-  const d = new Date(iso);
+-  const pad = (n: number) => String(n).padStart(2, "0");
+-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+-}
+-
+-function toIsoOrNull(local: string): string | null {
+-  if (!local) return null;
+-  return new Date(local).toISOString();
+-}
+-
+ export function CmsForm({ tournament }: { tournament: Tournament }) {
+   const router = useRouter();
+   const [form, setForm] = useState({
+@@ -30,11 +19,10 @@
+     contactInfo: tournament.contact_info ?? "",
+     rulesContent: tournament.rules_content ?? "",
+     notes: tournament.notes ?? "",
+-    eventStartsAt: toLocalInputValue(tournament.event_starts_at),
+-    eventEndsAt: toLocalInputValue(tournament.event_ends_at),
+-    entryStartsAt: toLocalInputValue(tournament.entry_starts_at),
+-    entryEndsAt: toLocalInputValue(tournament.entry_ends_at),
++    eventStartsAt: toJstInputValue(tournament.event_starts_at),
++    eventEndsAt: toJstInputValue(tournament.event_ends_at),
+     capacity: tournament.capacity ? String(tournament.capacity) : "",
++    showEntryCount: tournament.show_entry_count,
+   });
+   const [pending, setPending] = useState(false);
+   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+@@ -65,11 +53,10 @@
+         contactInfo: form.contactInfo || null,
+         rulesContent: form.rulesContent || null,
+         notes: form.notes || null,
+-        eventStartsAt: toIsoOrNull(form.eventStartsAt),
+-        eventEndsAt: toIsoOrNull(form.eventEndsAt),
+-        entryStartsAt: toIsoOrNull(form.entryStartsAt),
+-        entryEndsAt: toIsoOrNull(form.entryEndsAt),
++        eventStartsAt: form.eventStartsAt ? fromJstInputValue(form.eventStartsAt) : null,
++        eventEndsAt: form.eventEndsAt ? fromJstInputValue(form.eventEndsAt) : null,
+         capacity: form.capacity ? Number(form.capacity) : null,
++        showEntryCount: form.showEntryCount,
+       }),
+     });
+ 
+@@ -96,7 +83,7 @@
+           <input {...field("name")} required className={inputClass} />
+         </div>
+         <div className="flex flex-col gap-1 sm:col-span-2">
+-          <label className="text-sm font-medium text-body">大会概要</label>
++          <label className="text-sm font-medium text-body">大会概要(Markdown可)</label>
+           <textarea {...field("summary")} rows={3} className={inputClass} />
+         </div>
+         <div className="flex flex-col gap-1">
+@@ -128,34 +115,40 @@
+           <input {...field("contactInfo")} className={inputClass} />
+         </div>
+         <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">開催日時(開始)</label>
++          <label className="text-sm font-medium text-body">開催日時(開始・日本時間)</label>
+           <input {...field("eventStartsAt")} type="datetime-local" className={inputClass} />
+         </div>
+         <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">開催日時(終了)</label>
++          <label className="text-sm font-medium text-body">開催日時(終了・日本時間)</label>
+           <input {...field("eventEndsAt")} type="datetime-local" className={inputClass} />
+         </div>
+         <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">エントリー期間(開始)</label>
+-          <input {...field("entryStartsAt")} type="datetime-local" className={inputClass} />
+-        </div>
+-        <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">エントリー期間(終了)</label>
+-          <input {...field("entryEndsAt")} type="datetime-local" className={inputClass} />
+-        </div>
+-        <div className="flex flex-col gap-1">
+           <label className="text-sm font-medium text-body">定員</label>
+           <input {...field("capacity")} type="number" min={1} className={inputClass} />
+         </div>
++        <label className="flex items-start gap-2 text-sm text-body sm:col-span-2">
++          <input
++            type="checkbox"
++            checked={form.showEntryCount}
++            onChange={(e) => setForm((f) => ({ ...f, showEntryCount: e.target.checked }))}
++            className="mt-0.5 h-4 w-4"
++          />
++          <span>
++            公開ページにエントリー状況(件数・定員)を表示する
++            <span className="block text-xs text-muted">
++              エントリーの受付期間は「エントリーフォーム」の画面で設定します(公開フォームの受付可否にも使われます)。
++            </span>
++          </span>
++        </label>
+       </section>
+ 
+       <section className="grid gap-4">
+         <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">ルール(Markdown可)</label>
++          <label className="text-sm font-medium text-body">ルール(Markdown可: 見出し # / 箇条書き - / **太字** / [リンク](https://...))</label>
+           <textarea {...field("rulesContent")} rows={8} className={`${inputClass} font-mono`} />
+         </div>
+         <div className="flex flex-col gap-1">
+-          <label className="text-sm font-medium text-body">注意事項</label>
++          <label className="text-sm font-medium text-body">注意事項(Markdown可)</label>
+           <textarea {...field("notes")} rows={4} className={inputClass} />
+         </div>
+       </section>
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/cms/page.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/cms/page.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/cms/page.tsx	2026-11-16 02:05:48.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/cms/page.tsx	2026-11-20 00:26:37.000000000 +0000
+@@ -2,6 +2,9 @@
+ import { createClient } from "@/lib/supabase/server";
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
++import { Badge } from "@/components/ui/Badge";
++import { LinkButton } from "@/components/ui/Button";
++import { PageHeader } from "@/components/ui/PageHeader";
+ import { CmsForm } from "./cms-form";
+ 
+ export default async function CmsPage({
+@@ -26,12 +29,27 @@
+ 
+   if (!tournament) notFound();
+ 
++  const isPublic = tournament.status !== "DRAFT";
++
+   return (
+     <div>
+-      <h1 className="mb-1 text-2xl font-bold text-ink">大会ページ編集</h1>
+-      <p className="mb-6 text-sm text-muted">
+-        ここで編集した内容が公開ページ (/t/{tournament.slug}) に反映されます。
+-      </p>
++      <PageHeader
++        title="大会ページ編集"
++        description={`ここで編集した内容が公開ページ (/t/${tournament.slug}) に反映されます。`}
++        actions={
++          <>
++            <Badge tone={isPublic ? "success" : "neutral"}>{isPublic ? "公開中" : "非公開(下書き)"}</Badge>
++            <LinkButton href={`/t/${tournament.slug}`} variant="secondary" size="sm">
++              公開ページを開く
++            </LinkButton>
++          </>
++        }
++      />
++      {!isPublic && (
++        <p className="mb-4 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning">
++          大会のステータスが「下書き」の間、公開ページはスタッフ以外には表示されません。大会トップのステータス変更で公開できます。
++        </p>
++      )}
+       <div className="rounded-lg border border-border bg-surface p-6">
+         <CmsForm tournament={tournament} />
+       </div>
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/entry-fields/page.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/entry-fields/page.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/entry-fields/page.tsx	2026-11-19 13:36:52.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/entry-fields/page.tsx	2026-11-20 00:26:37.000000000 +0000
+@@ -30,7 +30,7 @@
+       .order("sort_order", { ascending: true }),
+     supabase
+       .from("tournaments")
+-      .select("slug, status, entry_opens_at, entry_closes_at, entry_auto_register")
++      .select("slug, status, entry_starts_at, entry_ends_at, entry_auto_register")
+       .eq("id", tournamentId)
+       .maybeSingle(),
+   ]);
+@@ -49,8 +49,8 @@
+       />
+       <EntrySettings
+         tournamentId={tournamentId}
+-        initialOpensAt={tournament.entry_opens_at}
+-        initialClosesAt={tournament.entry_closes_at}
++        initialOpensAt={tournament.entry_starts_at}
++        initialClosesAt={tournament.entry_ends_at}
+         initialAutoRegister={tournament.entry_auto_register}
+         statusLabel={TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
+         isOpenStatus={tournament.status === "REGISTRATION_OPEN"}
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/page.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/page.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/page.tsx	2026-11-18 02:27:06.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/page.tsx	2026-11-20 00:27:12.000000000 +0000
+@@ -3,6 +3,7 @@
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+ import { LinkButton } from "@/components/ui/Button";
++import { ResultsToggle } from "./results-toggle";
+ import { RoundDetail } from "./round-detail";
+ 
+ export default async function RoundDetailPage({
+@@ -29,6 +30,13 @@
+ 
+   if (!round) notFound();
+ 
++  const { data: tournamentRow } = await supabase
++    .from("tournaments")
++    .select("status")
++    .eq("id", tournamentId)
++    .maybeSingle();
++  const tournamentStatus = tournamentRow?.status ?? null;
++
+   const [{ data: roundParticipants }, { data: allParticipants }] = await Promise.all([
+     supabase
+       .from("round_participants")
+@@ -57,6 +65,14 @@
+         </div>
+       )}
+       {round.round_type !== "PAPER" && <div className="mb-3" />}
++      {can(role, "tournament:manage_rounds") && (
++        <ResultsToggle
++          tournamentId={tournamentId}
++          roundId={roundId}
++          initialPublic={round.results_public}
++          tournamentPublished={tournamentStatus === "PUBLISHED"}
++        />
++      )}
+ 
+       <RoundDetail
+         tournamentId={tournamentId}
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/results-toggle.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/results-toggle.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/results-toggle.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/rounds/[roundId]/results-toggle.tsx	2026-11-20 00:27:12.000000000 +0000
+@@ -0,0 +1,70 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { requestJson } from "@/lib/api/request";
++import { FormMessage } from "@/components/ui/Field";
++
++export function ResultsToggle({
++  tournamentId,
++  roundId,
++  initialPublic,
++  tournamentPublished,
++}: {
++  tournamentId: string;
++  roundId: string;
++  initialPublic: boolean;
++  tournamentPublished: boolean;
++}) {
++  const router = useRouter();
++  const [value, setValue] = useState(initialPublic);
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function change(next: boolean) {
++    setBusy(true);
++    setError(null);
++    const res = await requestJson(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ resultsPublic: next }),
++    });
++    setBusy(false);
++    if (!res.ok) {
++      setError(`変更できませんでした: ${res.message}`);
++      return;
++    }
++    setValue(next);
++    router.refresh();
++  }
++
++  return (
++    <div className="mb-6 rounded-xl border border-border bg-surface p-4">
++      <label className="flex items-start gap-2 text-sm text-body">
++        <input
++          type="checkbox"
++          checked={value}
++          disabled={busy}
++          onChange={(e) => change(e.target.checked)}
++          className="mt-0.5 h-4 w-4"
++        />
++        <span>
++          <strong className="text-ink">このラウンドの結果を大会ページに公開する</strong>
++          <span className="mt-0.5 block text-xs text-muted">
++            公開されるのは 順位・表示名・所属・得点・通過 のみです(メールアドレス等は出ません)。失格・欠場などの参加者は除かれます。
++          </span>
++          <span className={`mt-1 block text-xs ${tournamentPublished ? "text-success" : "text-warning"}`}>
++            {tournamentPublished
++              ? "大会ステータスが「結果公開」なので、チェックすると公開ページに表示されます。"
++              : "大会ステータスが「結果公開」になるまで、チェックしても公開ページには表示されません。"}
++          </span>
++        </span>
++      </label>
++      {error && (
++        <div className="mt-2">
++          <FormMessage tone="error">{error}</FormMessage>
++        </div>
++      )}
++    </div>
++  );
++}
+diff -ruN a/src/app/(dashboard)/tournaments/[tournamentId]/schedule/schedule-editor.tsx b/src/app/(dashboard)/tournaments/[tournamentId]/schedule/schedule-editor.tsx
+--- a/src/app/(dashboard)/tournaments/[tournamentId]/schedule/schedule-editor.tsx	2026-11-18 02:13:13.000000000 +0000
++++ b/src/app/(dashboard)/tournaments/[tournamentId]/schedule/schedule-editor.tsx	2026-11-20 00:27:20.000000000 +0000
+@@ -3,18 +3,12 @@
+ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+ import type { Database } from "@/types/database";
++import { fromJstInputValue, toJstInputValue } from "@/lib/entries/window";
+ 
+ type ScheduleItem = Database["public"]["Tables"]["schedule_items"]["Row"];
+ 
+ type DraftItem = { label: string; scheduledAt: string };
+ 
+-function toLocalInputValue(iso: string | null): string {
+-  if (!iso) return "";
+-  const d = new Date(iso);
+-  const pad = (n: number) => String(n).padStart(2, "0");
+-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+-}
+-
+ export function ScheduleEditor({
+   tournamentId,
+   initialItems,
+@@ -24,7 +18,7 @@
+ }) {
+   const router = useRouter();
+   const [items, setItems] = useState<DraftItem[]>(
+-    initialItems.map((i) => ({ label: i.label, scheduledAt: toLocalInputValue(i.scheduled_at) }))
++    initialItems.map((i) => ({ label: i.label, scheduledAt: toJstInputValue(i.scheduled_at) }))
+   );
+   const [pending, setPending] = useState(false);
+   const [message, setMessage] = useState<string | null>(null);
+@@ -63,7 +57,7 @@
+           .filter((i) => i.label.trim() !== "")
+           .map((i) => ({
+             label: i.label,
+-            scheduledAt: i.scheduledAt ? new Date(i.scheduledAt).toISOString() : null,
++            scheduledAt: i.scheduledAt ? fromJstInputValue(i.scheduledAt) : null,
+           })),
+       }),
+     });
+diff -ruN a/src/app/api/tournaments/[tournamentId]/cms/route.ts b/src/app/api/tournaments/[tournamentId]/cms/route.ts
+--- a/src/app/api/tournaments/[tournamentId]/cms/route.ts	2026-11-16 02:05:48.000000000 +0000
++++ b/src/app/api/tournaments/[tournamentId]/cms/route.ts	2026-11-20 00:26:37.000000000 +0000
+@@ -4,11 +4,17 @@
+ import { getTournamentRole } from "@/lib/auth/current-user";
+ import { can } from "@/lib/permissions";
+ 
++// 画像URLは http(s) だけ。z.string().url() は javascript: なども通してしまう。
++const httpUrl = z
++  .string()
++  .url()
++  .refine((v) => /^https?:\/\//i.test(v), { message: "http または https のURLを指定してください" });
++
+ const cmsSchema = z.object({
+   name: z.string().min(1).max(200).optional(),
+   summary: z.string().max(2000).nullable().optional(),
+-  logoUrl: z.string().url().nullable().optional(),
+-  mainVisualUrl: z.string().url().nullable().optional(),
++  logoUrl: httpUrl.nullable().optional(),
++  mainVisualUrl: httpUrl.nullable().optional(),
+   venue: z.string().max(200).nullable().optional(),
+   organizerName: z.string().max(200).nullable().optional(),
+   contactInfo: z.string().max(1000).nullable().optional(),
+@@ -19,6 +25,7 @@
+   entryStartsAt: z.string().datetime().nullable().optional(),
+   entryEndsAt: z.string().datetime().nullable().optional(),
+   capacity: z.number().int().positive().nullable().optional(),
++  showEntryCount: z.boolean().optional(),
+ });
+ 
+ type RouteParams = { params: Promise<{ tournamentId: string }> };
+@@ -62,6 +69,7 @@
+       ...(d.entryStartsAt !== undefined && { entry_starts_at: d.entryStartsAt }),
+       ...(d.entryEndsAt !== undefined && { entry_ends_at: d.entryEndsAt }),
+       ...(d.capacity !== undefined && { capacity: d.capacity }),
++      ...(d.showEntryCount !== undefined && { show_entry_count: d.showEntryCount }),
+     })
+     .eq("id", tournamentId)
+     .select()
+diff -ruN a/src/app/api/tournaments/[tournamentId]/entry-settings/route.ts b/src/app/api/tournaments/[tournamentId]/entry-settings/route.ts
+--- a/src/app/api/tournaments/[tournamentId]/entry-settings/route.ts	2026-11-19 02:04:13.000000000 +0000
++++ b/src/app/api/tournaments/[tournamentId]/entry-settings/route.ts	2026-11-20 00:26:37.000000000 +0000
+@@ -42,12 +42,12 @@
+   const { data, error } = await supabase
+     .from("tournaments")
+     .update({
+-      entry_opens_at: parsed.data.opensAt,
+-      entry_closes_at: parsed.data.closesAt,
++      entry_starts_at: parsed.data.opensAt,
++      entry_ends_at: parsed.data.closesAt,
+       entry_auto_register: parsed.data.autoRegister,
+     })
+     .eq("id", tournamentId)
+-    .select("entry_opens_at, entry_closes_at, entry_auto_register")
++    .select("entry_starts_at, entry_ends_at, entry_auto_register")
+     .maybeSingle();
+ 
+   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+@@ -55,8 +55,8 @@
+   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
+ 
+   return NextResponse.json({
+-    opensAt: data.entry_opens_at,
+-    closesAt: data.entry_closes_at,
++    opensAt: data.entry_starts_at,
++    closesAt: data.entry_ends_at,
+     autoRegister: data.entry_auto_register,
+   });
+ }
+diff -ruN a/src/app/api/tournaments/[tournamentId]/rounds/[roundId]/route.ts b/src/app/api/tournaments/[tournamentId]/rounds/[roundId]/route.ts
+--- a/src/app/api/tournaments/[tournamentId]/rounds/[roundId]/route.ts	2026-11-16 02:05:48.000000000 +0000
++++ b/src/app/api/tournaments/[tournamentId]/rounds/[roundId]/route.ts	2026-11-20 00:26:37.000000000 +0000
+@@ -13,6 +13,7 @@
+   status: z.enum(["NOT_STARTED", "RUNNING", "PAUSED", "FINISHED"]).optional(),
+   stageId: z.string().uuid().nullable().optional(),
+   ruleConfig: ruleConfigSchema.optional(),
++  resultsPublic: z.boolean().optional(),
+ });
+ 
+ type RouteParams = { params: Promise<{ tournamentId: string; roundId: string }> };
+@@ -85,6 +86,7 @@
+       ...(d.status !== undefined && { status: d.status }),
+       ...(d.stageId !== undefined && { stage_id: d.stageId }),
+       ...(d.ruleConfig !== undefined && { rule_config: d.ruleConfig }),
++      ...(d.resultsPublic !== undefined && { results_public: d.resultsPublic }),
+     })
+     .eq("id", roundId)
+     .eq("tournament_id", tournamentId)
+diff -ruN a/src/app/t/[slug]/entry/page.tsx b/src/app/t/[slug]/entry/page.tsx
+--- a/src/app/t/[slug]/entry/page.tsx	2026-11-19 02:04:13.000000000 +0000
++++ b/src/app/t/[slug]/entry/page.tsx	2026-11-20 00:26:37.000000000 +0000
+@@ -13,7 +13,7 @@
+ 
+   const { data: tournament } = await supabase
+     .from("tournaments")
+-    .select("id, name, status, entry_opens_at, entry_closes_at")
++    .select("id, name, status, entry_starts_at, entry_ends_at")
+     .eq("slug", slug)
+     .maybeSingle();
+ 
+@@ -27,11 +27,11 @@
+ 
+   const windowInput = {
+     status: tournament.status,
+-    opensAt: tournament.entry_opens_at,
+-    closesAt: tournament.entry_closes_at,
++    opensAt: tournament.entry_starts_at,
++    closesAt: tournament.entry_ends_at,
+   };
+   const state = entryWindowState(windowInput, new Date());
+-  const windowText = formatEntryWindow(tournament.entry_opens_at, tournament.entry_closes_at);
++  const windowText = formatEntryWindow(tournament.entry_starts_at, tournament.entry_ends_at);
+ 
+   return (
+     <div className="min-h-screen bg-surface-muted px-4 py-10">
+diff -ruN a/src/app/t/[slug]/page.tsx b/src/app/t/[slug]/page.tsx
+--- a/src/app/t/[slug]/page.tsx	2026-11-18 02:13:19.000000000 +0000
++++ b/src/app/t/[slug]/page.tsx	2026-11-20 00:27:12.000000000 +0000
+@@ -2,6 +2,16 @@
+ import { notFound } from "next/navigation";
+ import { createClient } from "@/lib/supabase/server";
+ import { TOURNAMENT_STATUS_LABEL } from "@/lib/tournament/status";
++import { entryClosedMessage, entryWindowState, formatEntryWindow, formatJst } from "@/lib/entries/window";
++import { Markdown } from "@/components/Markdown";
++
++// 公開ページに必要な列だけを取得する。select("*") だと owner_id(スタッフのユーザーID)など
++// 管理用の列まで未認証の訪問者に渡ってしまう。
++const PUBLIC_COLUMNS =
++  "id, slug, name, status, summary, logo_url, main_visual_url, venue, organizer_name, contact_info, " +
++  "rules_content, notes, event_starts_at, event_ends_at, entry_starts_at, entry_ends_at, capacity, show_entry_count";
++
++const fmtScore = (n: number | null) => (n === null ? "-" : Number.isInteger(n) ? String(n) : n.toFixed(1));
+ 
+ export default async function PublicTournamentPage({
+   params,
+@@ -13,128 +23,222 @@
+ 
+   const { data: tournament } = await supabase
+     .from("tournaments")
+-    .select("*")
++    .select(PUBLIC_COLUMNS)
+     .eq("slug", slug)
+     .maybeSingle();
+ 
+   if (!tournament) notFound();
+ 
+-  const [{ data: announcements }, { data: schedule }] = await Promise.all([
+-    supabase
+-      .from("announcements")
+-      .select("*")
+-      .eq("tournament_id", tournament.id)
+-      .eq("is_published", true)
+-      .order("created_at", { ascending: false }),
+-    supabase
+-      .from("schedule_items")
+-      .select("*")
+-      .eq("tournament_id", tournament.id)
+-      .order("sort_order", { ascending: true }),
+-  ]);
++  const [{ data: announcements }, { data: schedule }, { data: entryCount }, { data: results }] =
++    await Promise.all([
++      supabase
++        .from("announcements")
++        .select("id, title, body, created_at")
++        .eq("tournament_id", tournament.id)
++        .eq("is_published", true)
++        .order("created_at", { ascending: false }),
++      supabase
++        .from("schedule_items")
++        .select("id, label, scheduled_at")
++        .eq("tournament_id", tournament.id)
++        .order("sort_order", { ascending: true }),
++      supabase.rpc("public_entry_count", { p_slug: slug }),
++      tournament.status === "PUBLISHED"
++        ? supabase.rpc("public_tournament_results", { p_slug: slug })
++        : Promise.resolve({ data: null }),
++    ]);
++
++  const windowInput = {
++    status: tournament.status,
++    opensAt: tournament.entry_starts_at,
++    closesAt: tournament.entry_ends_at,
++  };
++  const entryState = entryWindowState(windowInput, new Date());
++  const windowText = formatEntryWindow(tournament.entry_starts_at, tournament.entry_ends_at);
++
++  // 結果をラウンドごとにまとめる(関数側で並び順は確定済み)
++  const rounds: { id: string; name: string; rows: NonNullable<typeof results> }[] = [];
++  for (const row of results ?? []) {
++    let r = rounds.find((x) => x.id === row.round_id);
++    if (!r) {
++      r = { id: row.round_id, name: row.round_name, rows: [] };
++      rounds.push(r);
++    }
++    r.rows.push(row);
++  }
++
++  const sections: { id: string; label: string; show: boolean }[] = [
++    { id: "results", label: "結果", show: rounds.length > 0 },
++    { id: "overview", label: "概要", show: !!tournament.summary },
++    { id: "info", label: "開催情報", show: !!(tournament.event_starts_at || tournament.venue || windowText || tournament.capacity || entryCount !== null) },
++    { id: "schedule", label: "スケジュール", show: !!schedule && schedule.length > 0 },
++    { id: "rules", label: "ルール", show: !!tournament.rules_content },
++    { id: "notes", label: "注意事項", show: !!tournament.notes },
++    { id: "news", label: "お知らせ", show: !!announcements && announcements.length > 0 },
++    { id: "contact", label: "問い合わせ", show: !!tournament.contact_info },
++  ];
++  const nav = sections.filter((s) => s.show);
+ 
+-  const canEnter = tournament.status === "REGISTRATION_OPEN";
++  const h2 = "mb-3 text-lg font-bold text-ink";
++  const card = "rounded-xl border border-border bg-surface p-4 sm:p-5";
+ 
+   return (
+-    <div className="min-h-screen bg-surface-muted">
++    <div className="min-h-screen bg-surface-muted pb-16">
+       {tournament.main_visual_url && (
+         // eslint-disable-next-line @next/next/no-img-element
+-        <img
+-          src={tournament.main_visual_url}
+-          alt=""
+-          className="h-56 w-full object-cover sm:h-72"
+-        />
++        <img src={tournament.main_visual_url} alt="" className="h-48 w-full object-cover sm:h-72" />
+       )}
+ 
+-      <div className="mx-auto max-w-3xl px-4 py-10">
++      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
+         {tournament.status === "CANCELLED" && (
+-          <div
+-            role="status"
+-            className="mb-6 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger"
+-          >
++          <div role="status" className="mb-6 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
+             この大会は中止されました。
+           </div>
+         )}
+ 
+-        <div className="mb-8 flex items-start gap-4">
++        <header className="mb-6 flex items-start gap-4">
+           {tournament.logo_url && (
+             // eslint-disable-next-line @next/next/no-img-element
+-            <img
+-              src={tournament.logo_url}
+-              alt=""
+-              className="h-16 w-16 shrink-0 rounded-lg border border-border bg-surface object-contain p-1"
+-            />
++            <img src={tournament.logo_url} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-border bg-surface object-contain p-1" />
+           )}
+-          <div>
++          <div className="min-w-0">
+             <span className="mb-1 inline-block rounded-full bg-primary-soft px-3 py-0.5 text-xs font-medium text-primary">
+               {TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
+             </span>
+-            <h1 className="text-3xl font-bold text-ink">{tournament.name}</h1>
+-            {tournament.organizer_name && (
+-              <p className="mt-1 text-sm text-muted">主催: {tournament.organizer_name}</p>
+-            )}
++            <h1 className="break-words text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">{tournament.name}</h1>
++            {tournament.organizer_name && <p className="mt-1 text-sm text-muted">主催: {tournament.organizer_name}</p>}
+           </div>
+-        </div>
++        </header>
+ 
+-        {canEnter && (
+-          <div className="mb-8 rounded-lg border border-primary/30 bg-primary-soft p-5">
++        {/* エントリーの導線: 受付期間と連動(DBの受付条件と同じ判定) */}
++        {entryState === "open" && (
++          <div className="mb-6 rounded-xl border border-primary/30 bg-primary-soft p-5">
+             <p className="mb-3 text-sm text-ink">現在エントリーを受け付けています。</p>
+             <Link
+               href={`/t/${slug}/entry`}
+-              className="inline-block rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover"
++              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-hover sm:w-auto"
+             >
+               エントリーする
+             </Link>
+           </div>
+         )}
++        {(entryState === "not_open_yet" || entryState === "deadline_passed") && (
++          <div role="status" className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-body">
++            {entryClosedMessage(entryState, windowInput)}
++          </div>
++        )}
++        {tournament.status === "REGISTRATION_CLOSED" && (
++          <div role="status" className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-body">
++            エントリーの受付は終了しました。
++          </div>
++        )}
+ 
+-        {tournament.summary && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">大会概要</h2>
+-            <p className="whitespace-pre-wrap text-sm text-body">{tournament.summary}</p>
+-          </section>
++        {nav.length > 1 && (
++          <nav aria-label="ページ内メニュー" className="-mx-4 mb-6 overflow-x-auto px-4">
++            <ul className="flex gap-2 whitespace-nowrap">
++              {nav.map((s) => (
++                <li key={s.id}>
++                  <a href={`#${s.id}`} className="inline-block rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-body hover:bg-surface-muted">
++                    {s.label}
++                  </a>
++                </li>
++              ))}
++            </ul>
++          </nav>
+         )}
+ 
+-        <section className="mb-8 grid gap-4 sm:grid-cols-2">
+-          {(tournament.event_starts_at || tournament.venue) && (
+-            <div className="rounded-lg border border-border bg-surface p-4">
+-              <h3 className="mb-1 text-xs font-semibold uppercase text-muted">開催情報</h3>
+-              {tournament.event_starts_at && (
+-                <p className="text-sm text-body">
+-                  {new Date(tournament.event_starts_at).toLocaleString("ja-JP")}
+-                  {tournament.event_ends_at &&
+-                    ` 〜 ${new Date(tournament.event_ends_at).toLocaleString("ja-JP")}`}
+-                </p>
+-              )}
+-              {tournament.venue && <p className="text-sm text-body">{tournament.venue}</p>}
++        {rounds.length > 0 && (
++          <section id="results" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>大会結果</h2>
++            <div className="flex flex-col gap-4">
++              {rounds.map((r) => (
++                <div key={r.id} className="overflow-hidden rounded-xl border border-border bg-surface">
++                  <h3 className="border-b border-border bg-surface-muted px-4 py-2.5 text-sm font-bold text-ink">{r.name}</h3>
++                  <div className="overflow-x-auto">
++                    <table className="w-full text-left text-sm">
++                      <thead className="text-xs text-muted">
++                        <tr>
++                          <th className="px-4 py-2 font-semibold">順位</th>
++                          <th className="px-4 py-2 font-semibold">参加者</th>
++                          <th className="px-4 py-2 text-right font-semibold">得点</th>
++                          <th className="px-4 py-2" />
++                        </tr>
++                      </thead>
++                      <tbody className="divide-y divide-border">
++                        {r.rows.map((row, i) => (
++                          <tr key={`${row.rank}-${row.display_name}-${i}`} className={row.passed ? "bg-success-soft/40" : ""}>
++                            <td className="font-score px-4 py-2 font-bold text-ink">{row.rank}</td>
++                            <td className="px-4 py-2">
++                              <span className="font-medium text-ink">{row.display_name}</span>
++                              {row.affiliation && <span className="ml-2 text-xs text-muted">{row.affiliation}</span>}
++                            </td>
++                            <td className="font-score px-4 py-2 text-right font-bold">{fmtScore(row.score)}</td>
++                            <td className="px-4 py-2 text-right">
++                              {row.passed && <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">通過</span>}
++                            </td>
++                          </tr>
++                        ))}
++                      </tbody>
++                    </table>
++                  </div>
++                </div>
++              ))}
+             </div>
+-          )}
+-          {(tournament.entry_starts_at || tournament.capacity) && (
+-            <div className="rounded-lg border border-border bg-surface p-4">
+-              <h3 className="mb-1 text-xs font-semibold uppercase text-muted">エントリー情報</h3>
+-              {tournament.entry_starts_at && (
+-                <p className="text-sm text-body">
+-                  {new Date(tournament.entry_starts_at).toLocaleString("ja-JP")}
+-                  {tournament.entry_ends_at &&
+-                    ` 〜 ${new Date(tournament.entry_ends_at).toLocaleString("ja-JP")}`}
+-                </p>
+-              )}
+-              {tournament.capacity && (
+-                <p className="text-sm text-body">定員: {tournament.capacity}名</p>
+-              )}
++          </section>
++        )}
++
++        {tournament.summary && (
++          <section id="overview" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>大会概要</h2>
++            <div className={card}>
++              <Markdown source={tournament.summary} />
+             </div>
+-          )}
+-        </section>
++          </section>
++        )}
++
++        {sections.find((s) => s.id === "info")?.show && (
++          <section id="info" className="mb-8 grid scroll-mt-4 gap-4 sm:grid-cols-2">
++            {(tournament.event_starts_at || tournament.venue) && (
++              <div className={card}>
++                <h3 className="mb-1 text-xs font-semibold text-muted">開催情報</h3>
++                {tournament.event_starts_at && (
++                  <p className="text-sm text-body">
++                    {formatJst(tournament.event_starts_at)}
++                    {tournament.event_ends_at && ` 〜 ${formatJst(tournament.event_ends_at)}`}
++                    <span className="ml-1 text-xs text-muted">(日本時間)</span>
++                  </p>
++                )}
++                {tournament.venue && <p className="text-sm text-body">{tournament.venue}</p>}
++              </div>
++            )}
++            {(windowText || tournament.capacity || entryCount !== null) && (
++              <div className={card}>
++                <h3 className="mb-1 text-xs font-semibold text-muted">エントリー情報</h3>
++                {windowText && <p className="text-sm text-body">受付期間: {windowText}<span className="ml-1 text-xs text-muted">(日本時間)</span></p>}
++                {entryCount !== null && (
++                  <p className="text-sm text-body">
++                    エントリー済み: <strong className="font-score text-ink">{entryCount}</strong>名
++                    {tournament.capacity ? ` / 定員 ${tournament.capacity}名` : ""}
++                  </p>
++                )}
++                {entryCount === null && tournament.capacity && <p className="text-sm text-body">定員: {tournament.capacity}名</p>}
++                {entryCount !== null && tournament.capacity ? (
++                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
++                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, (entryCount / tournament.capacity) * 100)}%` }} />
++                  </div>
++                ) : null}
++              </div>
++            )}
++          </section>
++        )}
+ 
+         {schedule && schedule.length > 0 && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">スケジュール</h2>
+-            <ul className="rounded-lg border border-border bg-surface">
++          <section id="schedule" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>スケジュール</h2>
++            <ul className="overflow-hidden rounded-xl border border-border bg-surface">
+               {schedule.map((item) => (
+-                <li key={item.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0">
+-                  <span className="w-40 shrink-0 text-xs text-muted">
+-                    {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString("ja-JP") : ""}
+-                  </span>
++                <li key={item.id} className="flex flex-col gap-0.5 border-b border-border px-4 py-3 last:border-0 sm:flex-row sm:items-center sm:gap-3">
++                  <span className="shrink-0 text-xs text-muted sm:w-40">{item.scheduled_at ? formatJst(item.scheduled_at) : ""}</span>
+                   <span className="text-sm text-ink">{item.label}</span>
+                 </li>
+               ))}
+@@ -143,30 +247,32 @@
+         )}
+ 
+         {tournament.rules_content && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">ルール</h2>
+-            <p className="whitespace-pre-wrap text-sm text-body">{tournament.rules_content}</p>
++          <section id="rules" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>ルール</h2>
++            <div className={card}>
++              <Markdown source={tournament.rules_content} />
++            </div>
+           </section>
+         )}
+ 
+         {tournament.notes && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">注意事項</h2>
+-            <p className="whitespace-pre-wrap text-sm text-body">{tournament.notes}</p>
++          <section id="notes" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>注意事項</h2>
++            <div className={card}>
++              <Markdown source={tournament.notes} />
++            </div>
+           </section>
+         )}
+ 
+         {announcements && announcements.length > 0 && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">お知らせ</h2>
++          <section id="news" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>お知らせ</h2>
+             <ul className="flex flex-col gap-3">
+               {announcements.map((a) => (
+-                <li key={a.id} className="rounded-lg border border-border bg-surface p-4">
+-                  <p className="mb-1 text-sm font-medium text-ink">{a.title}</p>
+-                  <p className="whitespace-pre-wrap text-sm text-body">{a.body}</p>
+-                  <p className="mt-2 text-xs text-muted">
+-                    {new Date(a.created_at).toLocaleString("ja-JP")}
+-                  </p>
++                <li key={a.id} className={card}>
++                  <p className="mb-1 text-sm font-bold text-ink">{a.title}</p>
++                  <Markdown source={a.body} />
++                  <p className="mt-2 text-xs text-muted">{formatJst(a.created_at)}</p>
+                 </li>
+               ))}
+             </ul>
+@@ -174,9 +280,11 @@
+         )}
+ 
+         {tournament.contact_info && (
+-          <section className="mb-8">
+-            <h2 className="mb-2 text-lg font-semibold text-ink">問い合わせ先</h2>
+-            <p className="text-sm text-body">{tournament.contact_info}</p>
++          <section id="contact" className="mb-8 scroll-mt-4">
++            <h2 className={h2}>問い合わせ先</h2>
++            <div className={card}>
++              <Markdown source={tournament.contact_info} />
++            </div>
+           </section>
+         )}
+       </div>
+diff -ruN a/src/components/Markdown.tsx b/src/components/Markdown.tsx
+--- a/src/components/Markdown.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/components/Markdown.tsx	2026-11-20 00:26:01.000000000 +0000
+@@ -0,0 +1,61 @@
++import type { ReactNode } from "react";
++import { parseMarkdown, type Inline } from "@/lib/markdown";
++
++function renderInline(nodes: Inline[]): ReactNode[] {
++  return nodes.map((n, i) => {
++    switch (n.type) {
++      case "text":
++        return n.value;
++      case "bold":
++        return <strong key={i} className="font-semibold text-ink">{n.value}</strong>;
++      case "code":
++        return <code key={i} className="rounded bg-surface-muted px-1 py-0.5 font-mono text-[0.9em]">{n.value}</code>;
++      case "link":
++        return (
++          <a key={i} href={n.href} target="_blank" rel="noopener noreferrer nofollow" className="text-primary underline underline-offset-2 hover:text-primary-hover">
++            {n.value}
++          </a>
++        );
++    }
++  });
++}
++
++/** 大会ページの本文。HTMLは出力せず、React 要素だけを組み立てる(XSS を構造的に防ぐ)。 */
++export function Markdown({ source }: { source: string }) {
++  const blocks = parseMarkdown(source);
++  return (
++    <div className="flex flex-col gap-3 text-sm leading-relaxed text-body">
++      {blocks.map((b, i) => {
++        switch (b.type) {
++          case "heading":
++            return b.level === 1 ? (
++              <h3 key={i} className="mt-2 text-base font-bold text-ink">{renderInline(b.content)}</h3>
++            ) : (
++              <h4 key={i} className="mt-1 text-sm font-bold text-ink">{renderInline(b.content)}</h4>
++            );
++          case "paragraph":
++            return (
++              <p key={i}>
++                {b.lines.map((line, j) => (
++                  <span key={j}>
++                    {j > 0 && <br />}
++                    {renderInline(line)}
++                  </span>
++                ))}
++              </p>
++            );
++          case "list": {
++            const items = b.items.map((it, j) => <li key={j}>{renderInline(it)}</li>);
++            return b.ordered ? (
++              <ol key={i} className="list-decimal pl-5">{items}</ol>
++            ) : (
++              <ul key={i} className="list-disc pl-5">{items}</ul>
++            );
++          }
++          case "rule":
++            return <hr key={i} className="border-border" />;
++        }
++      })}
++    </div>
++  );
++}
+diff -ruN a/src/lib/markdown.ts b/src/lib/markdown.ts
+--- a/src/lib/markdown.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/lib/markdown.ts	2026-11-20 00:26:10.000000000 +0000
+@@ -0,0 +1,120 @@
++/**
++ * 大会ページ用の最小限の Markdown パーサー(依存なし・HTMLは一切通さない)。
++ *
++ * 対応: 見出し(# ## ###)、段落(行末の改行は <br>)、箇条書き(- / * / 1.)、区切り線(---)、
++ *       **太字**、`コード`、[リンク](https://...)。
++ * 安全性: パース結果は AST で、描画側が React 要素として出力する(dangerouslySetInnerHTML を使わない)。
++ *       書かれた HTML タグはただの文字として表示される。リンクは http / https / mailto のみ許可し、
++ *       javascript: や data: は文字のまま(リンクにしない)。
++ */
++export type Inline =
++  | { type: "text"; value: string }
++  | { type: "bold"; value: string }
++  | { type: "code"; value: string }
++  | { type: "link"; href: string; value: string };
++
++export type Block =
++  | { type: "heading"; level: 1 | 2 | 3; content: Inline[] }
++  | { type: "paragraph"; lines: Inline[][] }
++  | { type: "list"; ordered: boolean; items: Inline[][] }
++  | { type: "rule" };
++
++const SAFE_HREF = /^(https?:\/\/|mailto:)[^\s]+$/i;
++
++export function isSafeHref(href: string): boolean {
++  return SAFE_HREF.test(href);
++}
++
++const INLINE = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+\))/g;
++
++export function parseInline(text: string): Inline[] {
++  const out: Inline[] = [];
++  let last = 0;
++  for (const m of text.matchAll(INLINE)) {
++    const index = m.index ?? 0;
++    if (index > last) out.push({ type: "text", value: text.slice(last, index) });
++    const token = m[0];
++    if (token.startsWith("**")) {
++      out.push({ type: "bold", value: token.slice(2, -2) });
++    } else if (token.startsWith("`")) {
++      out.push({ type: "code", value: token.slice(1, -1) });
++    } else {
++      const close = token.indexOf("](");
++      const label = token.slice(1, close);
++      const href = token.slice(close + 2, -1);
++      // 危険なURLはリンクにせず、書かれたとおりの文字として残す
++      out.push(isSafeHref(href) ? { type: "link", href, value: label } : { type: "text", value: token });
++    }
++    last = index + token.length;
++  }
++  if (last < text.length) out.push({ type: "text", value: text.slice(last) });
++  return mergeText(out);
++}
++
++/** 隣り合うテキストを1つにまとめる(危険なリンクを文字に戻したときなどに分かれるため)。 */
++function mergeText(nodes: Inline[]): Inline[] {
++  const merged: Inline[] = [];
++  for (const n of nodes) {
++    const prev = merged[merged.length - 1];
++    if (n.type === "text" && prev?.type === "text") prev.value += n.value;
++    else merged.push(n);
++  }
++  return merged;
++}
++
++export function parseMarkdown(source: string): Block[] {
++  const lines = source.replace(/\r\n?/g, "\n").split("\n");
++  const blocks: Block[] = [];
++  let paragraph: string[] = [];
++  let list: { ordered: boolean; items: string[] } | null = null;
++
++  const flushParagraph = () => {
++    if (paragraph.length > 0) {
++      blocks.push({ type: "paragraph", lines: paragraph.map(parseInline) });
++      paragraph = [];
++    }
++  };
++  const flushList = () => {
++    if (list) {
++      blocks.push({ type: "list", ordered: list.ordered, items: list.items.map(parseInline) });
++      list = null;
++    }
++  };
++
++  for (const raw of lines) {
++    const line = raw.trimEnd();
++    if (line.trim() === "") {
++      flushParagraph();
++      flushList();
++      continue;
++    }
++    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
++    if (heading) {
++      flushParagraph();
++      flushList();
++      blocks.push({ type: "heading", level: heading[1].length as 1 | 2 | 3, content: parseInline(heading[2]) });
++      continue;
++    }
++    if (/^(-{3,}|\*{3,})$/.test(line.trim())) {
++      flushParagraph();
++      flushList();
++      blocks.push({ type: "rule" });
++      continue;
++    }
++    const bullet = /^\s*[-*]\s+(.+)$/.exec(line);
++    const numbered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
++    if (bullet || numbered) {
++      flushParagraph();
++      const ordered = !bullet;
++      if (list && list.ordered !== ordered) flushList();
++      if (!list) list = { ordered, items: [] };
++      list.items.push((bullet ?? numbered)![1]);
++      continue;
++    }
++    flushList();
++    paragraph.push(line);
++  }
++  flushParagraph();
++  flushList();
++  return blocks;
++}
+diff -ruN a/supabase/migrations/0016_public_page_results.sql b/supabase/migrations/0016_public_page_results.sql
+--- a/supabase/migrations/0016_public_page_results.sql	1970-01-01 00:00:00.000000000 +0000
++++ b/supabase/migrations/0016_public_page_results.sql	2026-11-20 00:26:01.000000000 +0000
+@@ -0,0 +1,138 @@
++-- =============================================================================
++-- Q-Score Pro : 0016
++-- 大会ホームページ: 受付期間の列の統合 / エントリー状況・大会結果の公開
++--
++-- 1. 0015 で作った entry_opens_at / entry_closes_at は、0002 から存在する
++--    entry_starts_at / entry_ends_at と同じ概念だった(CMS画面と公開ページが既に使用)。
++--    正を entry_starts_at / entry_ends_at に統一し、重複列を廃止する。
++--    0015 の列に値があれば、それを引き継ぐ(0015 以降に実際に効いていた値のため)。
++--    ※ これまで「表示だけ」だった受付期間が、RLS で強制されるようになる。
++--      影響を受ける大会(受付中なのに期間外)は、下の NOTICE に大会名が出る。
++-- 2. エントリー状況: tournaments.show_entry_count が true の大会だけ、件数を公開する。
++-- 3. 大会結果: rounds.results_public が true のラウンドを、大会が PUBLISHED のときだけ公開する。
++--    公開は SECURITY DEFINER 関数で、返す列を固定する(表示名・所属・順位・得点・通過のみ。
++--    メールアドレス等は構造的に返せない)。
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- 1. 受付期間の列を統合
++-- ---------------------------------------------------------------------------
++update public.tournaments
++set entry_starts_at = coalesce(entry_opens_at, entry_starts_at),
++    entry_ends_at = coalesce(entry_closes_at, entry_ends_at)
++where entry_opens_at is not null or entry_closes_at is not null;
++
++drop policy "entries_insert_public_when_open" on public.entries;
++alter table public.tournaments drop constraint tournaments_entry_window_order;
++alter table public.tournaments
++  drop column entry_opens_at,
++  drop column entry_closes_at;
++
++-- NOT VALID: 既存行は検査しない(従来は検証なしで保存できていたため)。以後の更新から強制。
++alter table public.tournaments
++  add constraint tournaments_entry_window_order
++  check (entry_starts_at is null or entry_ends_at is null or entry_starts_at < entry_ends_at)
++  not valid;
++
++comment on column public.tournaments.entry_starts_at is
++  'エントリー受付開始(null=制限なし)。REGISTRATION_OPEN の間、RLS(entries の INSERT)で強制される。';
++comment on column public.tournaments.entry_ends_at is
++  'エントリー受付締切(null=制限なし)。この時刻以降は受け付けない。';
++
++create policy "entries_insert_public_when_open"
++  on public.entries for insert
++  with check (
++    exists (
++      select 1 from public.tournaments t
++      where t.id = tournament_id
++        and t.status = 'REGISTRATION_OPEN'
++        and (t.entry_starts_at is null or t.entry_starts_at <= now())
++        and (t.entry_ends_at is null or now() < t.entry_ends_at)
++    )
++  );
++
++-- 期間が強制されるようになったことで、受付できなくなる大会を知らせる。
++do $$
++declare
++  r record;
++begin
++  for r in
++    select slug, entry_starts_at, entry_ends_at
++    from public.tournaments
++    where status = 'REGISTRATION_OPEN'
++      and ((entry_starts_at is not null and entry_starts_at > now())
++        or (entry_ends_at is not null and entry_ends_at <= now()))
++  loop
++    raise notice 'NOTE: tournament "%" is REGISTRATION_OPEN but outside its entry window (% - %); public entry is now refused until the window is changed.',
++      r.slug, r.entry_starts_at, r.entry_ends_at;
++  end loop;
++end;
++$$;
++
++-- ---------------------------------------------------------------------------
++-- 2. エントリー状況(件数のみ)
++-- ---------------------------------------------------------------------------
++alter table public.tournaments
++  add column show_entry_count boolean not null default false;
++
++comment on column public.tournaments.show_entry_count is
++  'true なら、公開ページにエントリー件数を表示する。';
++
++create function public.public_entry_count(p_slug text)
++returns integer
++language sql
++stable
++security definer
++set search_path = public
++as $$
++  select case
++    when t.show_entry_count then
++      (select count(*)::integer from public.entries e
++       where e.tournament_id = t.id and e.status = 'SUBMITTED')
++  end
++  from public.tournaments t
++  where t.slug = p_slug
++    and t.status in ('REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'RUNNING', 'FINISHED', 'PUBLISHED');
++$$;
++
++-- ---------------------------------------------------------------------------
++-- 3. 大会結果の公開
++-- ---------------------------------------------------------------------------
++alter table public.rounds
++  add column results_public boolean not null default false;
++
++comment on column public.rounds.results_public is
++  'true のラウンドの順位表を、大会が PUBLISHED のときだけ公開ページに出す。';
++
++create function public.public_tournament_results(p_slug text)
++returns table (
++  round_id uuid,
++  round_name text,
++  round_sort integer,
++  rank integer,
++  display_name text,
++  affiliation text,
++  score numeric,
++  passed boolean
++)
++language sql
++stable
++security definer
++set search_path = public
++as $$
++  select r.id, r.name, r.sort_order, rp.rank, p.display_name, p.affiliation, rp.score, rp.passed
++  from public.tournaments t
++  join public.rounds r on r.tournament_id = t.id and r.results_public
++  join public.round_participants rp on rp.round_id = r.id
++  join public.participants p on p.id = rp.participant_id
++  where t.slug = p_slug
++    and t.status = 'PUBLISHED'
++    and rp.rank is not null
++    and p.status = 'ACTIVE'
++  order by r.sort_order, rp.rank, p.display_name;
++$$;
++
++revoke all on function public.public_entry_count(text) from public;
++revoke all on function public.public_tournament_results(text) from public;
++grant execute on function public.public_entry_count(text) to anon, authenticated;
++grant execute on function public.public_tournament_results(text) to anon, authenticated;
+diff -ruN a/tests/unit/markdown.test.ts b/tests/unit/markdown.test.ts
+--- a/tests/unit/markdown.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/unit/markdown.test.ts	2026-11-20 00:26:01.000000000 +0000
+@@ -0,0 +1,70 @@
++import { describe, expect, it } from "vitest";
++import { isSafeHref, parseInline, parseMarkdown } from "@/lib/markdown";
++
++describe("parseInline", () => {
++  it("太字・コード・リンクを取り出す", () => {
++    expect(parseInline("a **b** `c` [d](https://example.com/x) e")).toEqual([
++      { type: "text", value: "a " },
++      { type: "bold", value: "b" },
++      { type: "text", value: " " },
++      { type: "code", value: "c" },
++      { type: "text", value: " " },
++      { type: "link", href: "https://example.com/x", value: "d" },
++      { type: "text", value: " e" },
++    ]);
++  });
++
++  it("javascript: / data: のリンクはリンクにしない(書かれた文字のまま残す)", () => {
++    for (const bad of ["javascript:alert(1)", "data:text/html;base64,AAAA", "vbscript:x", "//evil.example"]) {
++      const out = parseInline(`[click](${bad})`);
++      expect(out).toEqual([{ type: "text", value: `[click](${bad})` }]);
++    }
++  });
++
++  it("http / https / mailto は許可する", () => {
++    expect(isSafeHref("http://a.example")).toBe(true);
++    expect(isSafeHref("https://a.example/p?q=1#h")).toBe(true);
++    expect(isSafeHref("mailto:staff@example.com")).toBe(true);
++    expect(isSafeHref("JAVASCRIPT:alert(1)")).toBe(false);
++    expect(isSafeHref("https://a b")).toBe(false);
++  });
++
++  it("HTML タグは解釈されず、ただの文字になる", () => {
++    expect(parseInline('<script>alert(1)</script><img src=x onerror=alert(1)>')).toEqual([
++      { type: "text", value: '<script>alert(1)</script><img src=x onerror=alert(1)>' },
++    ]);
++  });
++});
++
++describe("parseMarkdown", () => {
++  it("見出し・段落・箇条書き・番号リスト・区切り線", () => {
++    const blocks = parseMarkdown(["# 大会ルール", "", "- 1問正解で10点", "- 誤答は-5点", "", "1. 準備", "2) 開始", "", "---", "おわり"].join("\n"));
++    expect(blocks.map((b) => b.type)).toEqual(["heading", "list", "list", "rule", "paragraph"]);
++    expect(blocks[1]).toMatchObject({ type: "list", ordered: false });
++    expect((blocks[1] as { items: unknown[] }).items).toHaveLength(2);
++    expect(blocks[2]).toMatchObject({ type: "list", ordered: true });
++  });
++
++  it("連続する行は同じ段落で、行ごとに分かれる(<br> になる)", () => {
++    const [p] = parseMarkdown("1行目\n2行目");
++    expect(p).toMatchObject({ type: "paragraph" });
++    expect((p as { lines: unknown[] }).lines).toHaveLength(2);
++  });
++
++  it("CRLF でも同じ結果になる", () => {
++    expect(parseMarkdown("# a\r\n\r\n- b\r\n- c")).toEqual(parseMarkdown("# a\n\n- b\n- c"));
++  });
++
++  it("空文字・空白だけなら何も出さない", () => {
++    expect(parseMarkdown("")).toEqual([]);
++    expect(parseMarkdown("  \n \n")).toEqual([]);
++  });
++
++  it("4段階以上の # は見出しにしない(段落として残す)", () => {
++    expect(parseMarkdown("#### x")[0].type).toBe("paragraph");
++  });
++
++  it("リストの種類が変わると別のリストになる", () => {
++    expect(parseMarkdown("- a\n1. b").map((b) => b.type)).toEqual(["list", "list"]);
++  });
++});
