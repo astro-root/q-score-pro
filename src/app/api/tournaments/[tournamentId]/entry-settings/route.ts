@@ -42,12 +42,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const { data, error } = await supabase
     .from("tournaments")
     .update({
-      entry_opens_at: parsed.data.opensAt,
-      entry_closes_at: parsed.data.closesAt,
+      entry_starts_at: parsed.data.opensAt,
+      entry_ends_at: parsed.data.closesAt,
       entry_auto_register: parsed.data.autoRegister,
     })
     .eq("id", tournamentId)
-    .select("entry_opens_at, entry_closes_at, entry_auto_register")
+    .select("entry_starts_at, entry_ends_at, entry_auto_register")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -55,8 +55,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   return NextResponse.json({
-    opensAt: data.entry_opens_at,
-    closesAt: data.entry_closes_at,
+    opensAt: data.entry_starts_at,
+    closesAt: data.entry_ends_at,
     autoRegister: data.entry_auto_register,
   });
 }

@@ -30,7 +30,7 @@ export default async function EntryFieldsPage({
       .order("sort_order", { ascending: true }),
     supabase
       .from("tournaments")
-      .select("slug, status, entry_opens_at, entry_closes_at, entry_auto_register")
+      .select("slug, status, entry_starts_at, entry_ends_at, entry_auto_register")
       .eq("id", tournamentId)
       .maybeSingle(),
   ]);
@@ -49,8 +49,8 @@ export default async function EntryFieldsPage({
       />
       <EntrySettings
         tournamentId={tournamentId}
-        initialOpensAt={tournament.entry_opens_at}
-        initialClosesAt={tournament.entry_closes_at}
+        initialOpensAt={tournament.entry_starts_at}
+        initialClosesAt={tournament.entry_ends_at}
         initialAutoRegister={tournament.entry_auto_register}
         statusLabel={TOURNAMENT_STATUS_LABEL[tournament.status] ?? tournament.status}
         isOpenStatus={tournament.status === "REGISTRATION_OPEN"}

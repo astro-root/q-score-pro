@@ -3,17 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/types/database";
+import { fromJstInputValue, toJstInputValue } from "@/lib/entries/window";
 
 type ScheduleItem = Database["public"]["Tables"]["schedule_items"]["Row"];
 
 type DraftItem = { label: string; scheduledAt: string };
-
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function ScheduleEditor({
   tournamentId,
@@ -24,7 +18,7 @@ export function ScheduleEditor({
 }) {
   const router = useRouter();
   const [items, setItems] = useState<DraftItem[]>(
-    initialItems.map((i) => ({ label: i.label, scheduledAt: toLocalInputValue(i.scheduled_at) }))
+    initialItems.map((i) => ({ label: i.label, scheduledAt: toJstInputValue(i.scheduled_at) }))
   );
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -63,7 +57,7 @@ export function ScheduleEditor({
           .filter((i) => i.label.trim() !== "")
           .map((i) => ({
             label: i.label,
-            scheduledAt: i.scheduledAt ? new Date(i.scheduledAt).toISOString() : null,
+            scheduledAt: i.scheduledAt ? fromJstInputValue(i.scheduledAt) : null,
           })),
       }),
     });

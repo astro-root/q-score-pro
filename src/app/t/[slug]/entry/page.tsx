@@ -13,7 +13,7 @@ export default async function PublicEntryPage({
 
   const { data: tournament } = await supabase
     .from("tournaments")
-    .select("id, name, status, entry_opens_at, entry_closes_at")
+    .select("id, name, status, entry_starts_at, entry_ends_at")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -27,11 +27,11 @@ export default async function PublicEntryPage({
 
   const windowInput = {
     status: tournament.status,
-    opensAt: tournament.entry_opens_at,
-    closesAt: tournament.entry_closes_at,
+    opensAt: tournament.entry_starts_at,
+    closesAt: tournament.entry_ends_at,
   };
   const state = entryWindowState(windowInput, new Date());
-  const windowText = formatEntryWindow(tournament.entry_opens_at, tournament.entry_closes_at);
+  const windowText = formatEntryWindow(tournament.entry_starts_at, tournament.entry_ends_at);
 
   return (
     <div className="min-h-screen bg-surface-muted px-4 py-10">

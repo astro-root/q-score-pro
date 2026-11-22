@@ -3,20 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/types/database";
+import { fromJstInputValue, toJstInputValue } from "@/lib/entries/window";
 
 type Tournament = Database["public"]["Tables"]["tournaments"]["Row"];
-
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toIsoOrNull(local: string): string | null {
-  if (!local) return null;
-  return new Date(local).toISOString();
-}
 
 export function CmsForm({ tournament }: { tournament: Tournament }) {
   const router = useRouter();
@@ -30,11 +19,10 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
     contactInfo: tournament.contact_info ?? "",
     rulesContent: tournament.rules_content ?? "",
     notes: tournament.notes ?? "",
-    eventStartsAt: toLocalInputValue(tournament.event_starts_at),
-    eventEndsAt: toLocalInputValue(tournament.event_ends_at),
-    entryStartsAt: toLocalInputValue(tournament.entry_starts_at),
-    entryEndsAt: toLocalInputValue(tournament.entry_ends_at),
+    eventStartsAt: toJstInputValue(tournament.event_starts_at),
+    eventEndsAt: toJstInputValue(tournament.event_ends_at),
     capacity: tournament.capacity ? String(tournament.capacity) : "",
+    showEntryCount: tournament.show_entry_count,
   });
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -65,11 +53,10 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
         contactInfo: form.contactInfo || null,
         rulesContent: form.rulesContent || null,
         notes: form.notes || null,
-        eventStartsAt: toIsoOrNull(form.eventStartsAt),
-        eventEndsAt: toIsoOrNull(form.eventEndsAt),
-        entryStartsAt: toIsoOrNull(form.entryStartsAt),
-        entryEndsAt: toIsoOrNull(form.entryEndsAt),
+        eventStartsAt: form.eventStartsAt ? fromJstInputValue(form.eventStartsAt) : null,
+        eventEndsAt: form.eventEndsAt ? fromJstInputValue(form.eventEndsAt) : null,
         capacity: form.capacity ? Number(form.capacity) : null,
+        showEntryCount: form.showEntryCount,
       }),
     });
 
@@ -96,7 +83,7 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
           <input {...field("name")} required className={inputClass} />
         </div>
         <div className="flex flex-col gap-1 sm:col-span-2">
-          <label className="text-sm font-medium text-body">大会概要</label>
+          <label className="text-sm font-medium text-body">大会概要(Markdown可)</label>
           <textarea {...field("summary")} rows={3} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
@@ -128,34 +115,40 @@ export function CmsForm({ tournament }: { tournament: Tournament }) {
           <input {...field("contactInfo")} className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">開催日時(開始)</label>
+          <label className="text-sm font-medium text-body">開催日時(開始・日本時間)</label>
           <input {...field("eventStartsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">開催日時(終了)</label>
+          <label className="text-sm font-medium text-body">開催日時(終了・日本時間)</label>
           <input {...field("eventEndsAt")} type="datetime-local" className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">エントリー期間(開始)</label>
-          <input {...field("entryStartsAt")} type="datetime-local" className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">エントリー期間(終了)</label>
-          <input {...field("entryEndsAt")} type="datetime-local" className={inputClass} />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-body">定員</label>
           <input {...field("capacity")} type="number" min={1} className={inputClass} />
         </div>
+        <label className="flex items-start gap-2 text-sm text-body sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={form.showEntryCount}
+            onChange={(e) => setForm((f) => ({ ...f, showEntryCount: e.target.checked }))}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            公開ページにエントリー状況(件数・定員)を表示する
+            <span className="block text-xs text-muted">
+              エントリーの受付期間は「エントリーフォーム」の画面で設定します(公開フォームの受付可否にも使われます)。
+            </span>
+          </span>
+        </label>
       </section>
 
       <section className="grid gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">ルール(Markdown可)</label>
+          <label className="text-sm font-medium text-body">ルール(Markdown可: 見出し # / 箇条書き - / **太字** / [リンク](https://...))</label>
           <textarea {...field("rulesContent")} rows={8} className={`${inputClass} font-mono`} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-body">注意事項</label>
+          <label className="text-sm font-medium text-body">注意事項(Markdown可)</label>
           <textarea {...field("notes")} rows={4} className={inputClass} />
         </div>
       </section>
