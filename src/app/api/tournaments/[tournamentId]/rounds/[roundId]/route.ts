@@ -13,6 +13,7 @@ const updateSchema = z.object({
   status: z.enum(["NOT_STARTED", "RUNNING", "PAUSED", "FINISHED"]).optional(),
   stageId: z.string().uuid().nullable().optional(),
   ruleConfig: ruleConfigSchema.optional(),
+  resultsPublic: z.boolean().optional(),
 });
 
 type RouteParams = { params: Promise<{ tournamentId: string; roundId: string }> };
@@ -85,6 +86,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ...(d.status !== undefined && { status: d.status }),
       ...(d.stageId !== undefined && { stage_id: d.stageId }),
       ...(d.ruleConfig !== undefined && { rule_config: d.ruleConfig }),
+      ...(d.resultsPublic !== undefined && { results_public: d.resultsPublic }),
     })
     .eq("id", roundId)
     .eq("tournament_id", tournamentId)

@@ -548,6 +548,7 @@ export type Database = {
           current_question_number: number
           id: string
           name: string
+          results_public: boolean
           round_type: Database["public"]["Enums"]["round_type"]
           rule_config: Json
           sort_order: number
@@ -562,6 +563,7 @@ export type Database = {
           current_question_number?: number
           id?: string
           name: string
+          results_public?: boolean
           round_type?: Database["public"]["Enums"]["round_type"]
           rule_config?: Json
           sort_order?: number
@@ -576,6 +578,7 @@ export type Database = {
           current_question_number?: number
           id?: string
           name?: string
+          results_public?: boolean
           round_type?: Database["public"]["Enums"]["round_type"]
           rule_config?: Json
           sort_order?: number
@@ -791,9 +794,7 @@ export type Database = {
           contact_info: string | null
           created_at: string
           entry_auto_register: boolean
-          entry_closes_at: string | null
           entry_ends_at: string | null
-          entry_opens_at: string | null
           entry_starts_at: string | null
           event_ends_at: string | null
           event_starts_at: string | null
@@ -805,6 +806,7 @@ export type Database = {
           organizer_name: string | null
           owner_id: string
           rules_content: string | null
+          show_entry_count: boolean
           slug: string
           status: Database["public"]["Enums"]["tournament_status"]
           summary: string | null
@@ -816,9 +818,7 @@ export type Database = {
           contact_info?: string | null
           created_at?: string
           entry_auto_register?: boolean
-          entry_closes_at?: string | null
           entry_ends_at?: string | null
-          entry_opens_at?: string | null
           entry_starts_at?: string | null
           event_ends_at?: string | null
           event_starts_at?: string | null
@@ -830,6 +830,7 @@ export type Database = {
           organizer_name?: string | null
           owner_id: string
           rules_content?: string | null
+          show_entry_count?: boolean
           slug: string
           status?: Database["public"]["Enums"]["tournament_status"]
           summary?: string | null
@@ -841,9 +842,7 @@ export type Database = {
           contact_info?: string | null
           created_at?: string
           entry_auto_register?: boolean
-          entry_closes_at?: string | null
           entry_ends_at?: string | null
-          entry_opens_at?: string | null
           entry_starts_at?: string | null
           event_ends_at?: string | null
           event_starts_at?: string | null
@@ -855,6 +854,7 @@ export type Database = {
           organizer_name?: string | null
           owner_id?: string
           rules_content?: string | null
+          show_entry_count?: boolean
           slug?: string
           status?: Database["public"]["Enums"]["tournament_status"]
           summary?: string | null
@@ -900,9 +900,7 @@ export type Database = {
           contact_info: string | null
           created_at: string
           entry_auto_register: boolean
-          entry_closes_at: string | null
           entry_ends_at: string | null
-          entry_opens_at: string | null
           entry_starts_at: string | null
           event_ends_at: string | null
           event_starts_at: string | null
@@ -914,6 +912,7 @@ export type Database = {
           organizer_name: string | null
           owner_id: string
           rules_content: string | null
+          show_entry_count: boolean
           slug: string
           status: Database["public"]["Enums"]["tournament_status"]
           summary: string | null
@@ -947,6 +946,20 @@ export type Database = {
       paper_recompute_round: {
         Args: { p_round_id: string }
         Returns: undefined
+      }
+      public_entry_count: { Args: { p_slug: string }; Returns: number }
+      public_tournament_results: {
+        Args: { p_slug: string }
+        Returns: {
+          affiliation: string
+          display_name: string
+          passed: boolean
+          rank: number
+          round_id: string
+          round_name: string
+          round_sort: number
+          score: number
+        }[]
       }
       recompute_paper_round: {
         Args: { p_round_id: string }

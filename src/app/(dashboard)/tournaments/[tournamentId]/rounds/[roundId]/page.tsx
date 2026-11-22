@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 import { LinkButton } from "@/components/ui/Button";
+import { ResultsToggle } from "./results-toggle";
 import { RoundDetail } from "./round-detail";
 
 export default async function RoundDetailPage({
@@ -28,6 +29,13 @@ export default async function RoundDetailPage({
     .maybeSingle();
 
   if (!round) notFound();
+
+  const { data: tournamentRow } = await supabase
+    .from("tournaments")
+    .select("status")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  const tournamentStatus = tournamentRow?.status ?? null;
 
   const [{ data: roundParticipants }, { data: allParticipants }] = await Promise.all([
     supabase
@@ -57,6 +65,14 @@ export default async function RoundDetailPage({
         </div>
       )}
       {round.round_type !== "PAPER" && <div className="mb-3" />}
+      {can(role, "tournament:manage_rounds") && (
+        <ResultsToggle
+          tournamentId={tournamentId}
+          roundId={roundId}
+          initialPublic={round.results_public}
+          tournamentPublished={tournamentStatus === "PUBLISHED"}
+        />
+      )}
 
       <RoundDetail
         tournamentId={tournamentId}

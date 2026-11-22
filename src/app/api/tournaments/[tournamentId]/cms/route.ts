@@ -4,11 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { getTournamentRole } from "@/lib/auth/current-user";
 import { can } from "@/lib/permissions";
 
+// 画像URLは http(s) だけ。z.string().url() は javascript: なども通してしまう。
+const httpUrl = z
+  .string()
+  .url()
+  .refine((v) => /^https?:\/\//i.test(v), { message: "http または https のURLを指定してください" });
+
 const cmsSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   summary: z.string().max(2000).nullable().optional(),
-  logoUrl: z.string().url().nullable().optional(),
-  mainVisualUrl: z.string().url().nullable().optional(),
+  logoUrl: httpUrl.nullable().optional(),
+  mainVisualUrl: httpUrl.nullable().optional(),
   venue: z.string().max(200).nullable().optional(),
   organizerName: z.string().max(200).nullable().optional(),
   contactInfo: z.string().max(1000).nullable().optional(),
@@ -19,6 +25,7 @@ const cmsSchema = z.object({
   entryStartsAt: z.string().datetime().nullable().optional(),
   entryEndsAt: z.string().datetime().nullable().optional(),
   capacity: z.number().int().positive().nullable().optional(),
+  showEntryCount: z.boolean().optional(),
 });
 
 type RouteParams = { params: Promise<{ tournamentId: string }> };
@@ -62,6 +69,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ...(d.entryStartsAt !== undefined && { entry_starts_at: d.entryStartsAt }),
       ...(d.entryEndsAt !== undefined && { entry_ends_at: d.entryEndsAt }),
       ...(d.capacity !== undefined && { capacity: d.capacity }),
+      ...(d.showEntryCount !== undefined && { show_entry_count: d.showEntryCount }),
     })
     .eq("id", tournamentId)
     .select()
